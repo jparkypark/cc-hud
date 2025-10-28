@@ -125,6 +125,39 @@ function validateGitSegment(segment: any): void {
   validateSegmentColors(segment.colors, 'git');
 }
 
+function validateThoughtsSegment(segment: any): void {
+  if (!segment.display) {
+    throw new Error("Thoughts segment must have 'display' config");
+  }
+
+  const { display } = segment;
+
+  if (typeof display.icon !== 'boolean') {
+    throw new Error("Thoughts segment display.icon must be boolean");
+  }
+
+  if (typeof display.quotes !== 'boolean') {
+    throw new Error("Thoughts segment display.quotes must be boolean");
+  }
+
+  // Optional fields validation
+  if (segment.customThoughts !== undefined) {
+    if (!Array.isArray(segment.customThoughts)) {
+      throw new Error("Thoughts segment customThoughts must be an array");
+    }
+
+    if (segment.customThoughts.length === 0) {
+      throw new Error("Thoughts segment customThoughts must not be empty");
+    }
+
+    if (!segment.customThoughts.every((t: any) => typeof t === 'string')) {
+      throw new Error("Thoughts segment customThoughts must be an array of strings");
+    }
+  }
+
+  validateSegmentColors(segment.colors, 'thoughts');
+}
+
 export function validateConfig(config: any): asserts config is Config {
   if (!config) {
     throw new Error('Config cannot be null or undefined');
@@ -157,9 +190,12 @@ export function validateConfig(config: any): asserts config is Config {
       case 'git':
         validateGitSegment(segment);
         break;
+      case 'thoughts':
+        validateThoughtsSegment(segment);
+        break;
       default:
         throw new Error(
-          `Unknown segment type '${segment.type}' at index ${i}. Valid types: usage, directory, git`
+          `Unknown segment type '${segment.type}' at index ${i}. Valid types: usage, directory, git, thoughts`
         );
     }
   }

@@ -57,11 +57,25 @@ export interface GitSegmentConfig {
   colors: SegmentColors;
 }
 
+// Thoughts segment
+export interface ThoughtsSegmentDisplay {
+  icon: boolean;
+  quotes: boolean;  // Show quote marks around thoughts
+}
+
+export interface ThoughtsSegmentConfig {
+  type: 'thoughts';
+  display: ThoughtsSegmentDisplay;
+  colors: SegmentColors;
+  customThoughts?: string[];  // Optional custom thought pool
+}
+
 // Union type for all segment configs
 export type SegmentConfig =
   | UsageSegmentConfig
   | DirectorySegmentConfig
-  | GitSegmentConfig;
+  | GitSegmentConfig
+  | ThoughtsSegmentConfig;
 
 // Main config
 export interface Config {
