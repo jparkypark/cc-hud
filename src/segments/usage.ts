@@ -61,29 +61,43 @@ export class UsageSegment extends Segment {
       const today = getTodayDate();
       const timezone = getSystemTimezone();
 
-      // Load all data using ccusage
-      // Note: We load all data and filter manually because ccusage's date
-      // filtering doesn't seem to work reliably with since/until params
-      // Use offline: false to fetch latest pricing (includes newer models like haiku-4-5)
-      const data = await loadDailyUsageData({
-        offline: false, // Fetch latest pricing for accuracy
-        timezone,
-      });
+      // Suppress ccusage logging by temporarily redirecting console and process output
+      const originalStderr = console.error;
+      const originalConsoleLog = console.log;
+      const originalProcessStderrWrite = process.stderr.write;
 
-      // Find today's data
-      const todayData = data.find((d) => d.date === today);
+      console.error = () => {};
+      console.log = () => {};
+      process.stderr.write = () => true;
 
-      if (todayData) {
-        return {
-          cost: todayData.totalCost,
-          inputTokens: todayData.inputTokens,
-          outputTokens: todayData.outputTokens,
-        };
+      try {
+        // Load all data using ccusage
+        // Note: We load all data and filter manually because ccusage's date
+        // filtering doesn't seem to work reliably with since/until params
+        // Use offline: false to fetch latest pricing (includes newer models like haiku-4-5)
+        const data = await loadDailyUsageData({
+          offline: false, // Fetch latest pricing for accuracy
+          timezone,
+        });
+
+        // Find today's data
+        const todayData = data.find((d) => d.date === today);
+
+        return todayData
+          ? {
+              cost: todayData.totalCost,
+              inputTokens: todayData.inputTokens,
+              outputTokens: todayData.outputTokens,
+            }
+          : { cost: 0, inputTokens: 0, outputTokens: 0 };
+      } finally {
+        // Restore console and process methods
+        console.error = originalStderr;
+        console.log = originalConsoleLog;
+        process.stderr.write = originalProcessStderrWrite;
       }
-
-      // No data for today
-      return { cost: 0, inputTokens: 0, outputTokens: 0 };
     } catch (error) {
+      // Note: console.error is restored by this point
       console.error('[cc-hud] Failed to load usage data from ccusage:', error);
       return { cost: 0, inputTokens: 0, outputTokens: 0 };
     }
@@ -96,6 +110,11 @@ export class UsageSegment extends Segment {
     // We'll need to handle this in the main entry point
     // For now, show cached data or placeholder
     const parts: string[] = [];
+
+    // Add icon if enabled
+    if (display.icon) {
+      parts.push('☉');  // Alchemical symbol for gold (sun)
+    }
 
     if (display.cost) {
       const cost = this.cachedData?.cost || 0;

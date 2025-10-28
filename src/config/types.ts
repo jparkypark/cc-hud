@@ -2,7 +2,7 @@
  * Configuration types for cc-hud
  */
 
-export type SeparatorStyle = 'angled' | 'thin' | 'rounded' | 'flame';
+export type SeparatorStyle = 'angled' | 'thin' | 'rounded' | 'flame' | 'slant' | 'backslant';
 
 export interface SegmentColors {
   fg: string;
@@ -16,6 +16,7 @@ export interface ThemeConfig {
 
 // Usage segment
 export interface UsageSegmentDisplay {
+  icon: boolean;
   cost: boolean;
   tokens: boolean;
   period: 'today';  // Only 'today' in MVP
@@ -28,9 +29,11 @@ export interface UsageSegmentConfig {
 }
 
 // Directory segment
+export type PathDisplayMode = 'name' | 'full' | 'project';
+
 export interface DirectorySegmentDisplay {
   icon: boolean;
-  fullPath: boolean;
+  pathMode: PathDisplayMode;  // 'name' = dir name only, 'full' = ~/path, 'project' = project/path
 }
 
 export interface DirectorySegmentConfig {
@@ -41,6 +44,7 @@ export interface DirectorySegmentConfig {
 
 // Git segment
 export interface GitSegmentDisplay {
+  icon: boolean;
   branch: boolean;
   status: boolean;
   ahead: boolean;

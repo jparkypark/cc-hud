@@ -34,9 +34,14 @@ export class GitSegment extends Segment {
 
     const parts: string[] = [];
 
-    // Branch name with icon
+    // Add icon if enabled
+    if (display.icon) {
+      parts.push('⎇');  // Branch symbol
+    }
+
+    // Branch name
     if (display.branch) {
-      parts.push(` ${git.branch}`);  //  = Nerd Font git branch icon
+      parts.push(git.branch);
     }
 
     // Dirty indicator

@@ -9,6 +9,7 @@ export const DEFAULT_CONFIG: Config = {
     {
       type: 'usage',
       display: {
+        icon: true,
         cost: true,
         tokens: false,
         period: 'today',
@@ -22,7 +23,7 @@ export const DEFAULT_CONFIG: Config = {
       type: 'directory',
       display: {
         icon: true,
-        fullPath: false,
+        pathMode: 'name',
       },
       colors: {
         fg: '#d8dee9',
@@ -32,6 +33,7 @@ export const DEFAULT_CONFIG: Config = {
     {
       type: 'git',
       display: {
+        icon: true,
         branch: true,
         status: true,
         ahead: true,

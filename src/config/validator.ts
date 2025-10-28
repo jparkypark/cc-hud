@@ -9,6 +9,8 @@ const VALID_SEPARATOR_STYLES: SeparatorStyle[] = [
   'thin',
   'rounded',
   'flame',
+  'slant',
+  'backslant',
 ];
 
 const HEX_COLOR_REGEX = /^#[0-9A-Fa-f]{6}$/;
@@ -48,6 +50,10 @@ function validateUsageSegment(segment: any): void {
 
   const { display } = segment;
 
+  if (typeof display.icon !== 'boolean') {
+    throw new Error("Usage segment display.icon must be boolean");
+  }
+
   if (typeof display.cost !== 'boolean') {
     throw new Error("Usage segment display.cost must be boolean");
   }
@@ -76,8 +82,14 @@ function validateDirectorySegment(segment: any): void {
     throw new Error("Directory segment display.icon must be boolean");
   }
 
-  if (typeof display.fullPath !== 'boolean') {
-    throw new Error("Directory segment display.fullPath must be boolean");
+  if (!display.pathMode) {
+    throw new Error("Directory segment display.pathMode is required");
+  }
+
+  if (!['name', 'full', 'project'].includes(display.pathMode)) {
+    throw new Error(
+      `Directory segment display.pathMode must be 'name', 'full', or 'project'. Got: ${display.pathMode}`
+    );
   }
 
   validateSegmentColors(segment.colors, 'directory');
@@ -89,6 +101,10 @@ function validateGitSegment(segment: any): void {
   }
 
   const { display } = segment;
+
+  if (typeof display.icon !== 'boolean') {
+    throw new Error("Git segment display.icon must be boolean");
+  }
 
   if (typeof display.branch !== 'boolean') {
     throw new Error("Git segment display.branch must be boolean");
