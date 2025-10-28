@@ -4,8 +4,28 @@
  */
 
 import type { ClaudeCodeInput, ThoughtsSegmentConfig } from '../config';
-import type { DatabaseClient } from '../database';
+import { DatabaseClient } from '../database';
 import { Segment, type SegmentData } from './base';
+import { join } from 'path';
+import { homedir } from 'os';
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
+
+const CACHE_DIR = join(homedir(), '.cache', 'cc-hud');
+const THOUGHTS_STATE_FILE = join(CACHE_DIR, 'thoughts-state.json');
+const QUOTES_CACHE_FILE = join(CACHE_DIR, 'quotes-cache.json');
+
+interface ThoughtsState {
+  lastThought: string;
+  lastUpdate: number;
+}
+
+interface QuotesCache {
+  quotes: string[];
+  lastFetch: number;
+}
+
+// Cache quotes for 1 hour
+const QUOTES_CACHE_DURATION = 60 * 60 * 1000;
 
 /**
  * Default thought pool for random rotation
@@ -25,10 +45,154 @@ const DEFAULT_THOUGHTS = [
 
 export class ThoughtsSegment extends Segment {
   protected config: ThoughtsSegmentConfig;
+  private state: ThoughtsState;
+  private quotesCache: QuotesCache | null = null;
 
   constructor(config: ThoughtsSegmentConfig) {
     super(config);
     this.config = config;
+    this.state = this.loadState();
+
+    // Load quotes cache if API quotes are enabled
+    if (this.config.useApiQuotes) {
+      this.quotesCache = this.loadQuotesCache();
+    }
+  }
+
+  /**
+   * Load thoughts state from cache file
+   */
+  private loadState(): ThoughtsState {
+    try {
+      if (existsSync(THOUGHTS_STATE_FILE)) {
+        const data = readFileSync(THOUGHTS_STATE_FILE, 'utf-8');
+        return JSON.parse(data);
+      }
+    } catch (error) {
+      console.error('[cc-hud] Failed to load thoughts state:', error);
+    }
+
+    // Default state
+    return {
+      lastThought: '',
+      lastUpdate: Date.now(),
+    };
+  }
+
+  /**
+   * Save thoughts state to cache file
+   */
+  private saveState(): void {
+    try {
+      // Ensure cache directory exists
+      if (!existsSync(CACHE_DIR)) {
+        mkdirSync(CACHE_DIR, { recursive: true });
+      }
+
+      writeFileSync(THOUGHTS_STATE_FILE, JSON.stringify(this.state, null, 2));
+    } catch (error) {
+      console.error('[cc-hud] Failed to save thoughts state:', error);
+    }
+  }
+
+  /**
+   * Load quotes cache from file
+   */
+  private loadQuotesCache(): QuotesCache {
+    try {
+      if (existsSync(QUOTES_CACHE_FILE)) {
+        const data = readFileSync(QUOTES_CACHE_FILE, 'utf-8');
+        return JSON.parse(data);
+      }
+    } catch (error) {
+      console.error('[cc-hud] Failed to load quotes cache:', error);
+    }
+
+    return {
+      quotes: [],
+      lastFetch: 0,
+    };
+  }
+
+  /**
+   * Save quotes cache to file
+   */
+  private saveQuotesCache(cache: QuotesCache): void {
+    try {
+      if (!existsSync(CACHE_DIR)) {
+        mkdirSync(CACHE_DIR, { recursive: true });
+      }
+
+      writeFileSync(QUOTES_CACHE_FILE, JSON.stringify(cache, null, 2));
+    } catch (error) {
+      console.error('[cc-hud] Failed to save quotes cache:', error);
+    }
+  }
+
+  /**
+   * Fetch quotes from zenquotes.io API
+   */
+  private async fetchApiQuotes(): Promise<string[]> {
+    try {
+      // Fetch 5 random quotes
+      const response = await fetch('https://zenquotes.io/api/quotes');
+
+      if (!response.ok) {
+        throw new Error(`API request failed: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      // Format: [{ q: "quote text", a: "author" }, ...]
+      return data.map((item: any) => `${item.q} - ${item.a}`);
+    } catch (error) {
+      console.error('[cc-hud] Failed to fetch quotes from API:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Update quotes cache (call this before render)
+   */
+  async updateCache(): Promise<void> {
+    if (!this.config.useApiQuotes || !this.quotesCache) {
+      return;
+    }
+
+    // Check if cache is still valid
+    const now = Date.now();
+    const cacheAge = now - this.quotesCache.lastFetch;
+
+    if (cacheAge > QUOTES_CACHE_DURATION || this.quotesCache.quotes.length === 0) {
+      // Cache expired or empty, fetch new quotes
+      const quotes = await this.fetchApiQuotes();
+
+      if (quotes.length > 0) {
+        this.quotesCache = {
+          quotes,
+          lastFetch: now,
+        };
+        this.saveQuotesCache(this.quotesCache);
+      }
+    }
+  }
+
+  /**
+   * Get a quote from API cache (synchronous)
+   */
+  private getApiQuote(): string | null {
+    if (!this.quotesCache || this.quotesCache.quotes.length === 0) {
+      return null;
+    }
+
+    // Return a random quote from cache (avoiding last thought)
+    const availableQuotes = this.quotesCache.quotes.filter(
+      q => q !== this.state.lastThought
+    );
+
+    const pool = availableQuotes.length > 0 ? availableQuotes : this.quotesCache.quotes;
+    const index = Math.floor(Math.random() * pool.length);
+    return pool[index];
   }
 
   /**
@@ -39,41 +203,64 @@ export class ThoughtsSegment extends Segment {
   }
 
   /**
-   * Get a random thought from the pool
+   * Get a random thought from the pool (avoiding the last one shown)
    */
   private getRandomThought(): string {
     const thoughts = this.config.customThoughts ?? DEFAULT_THOUGHTS;
-    const index = Math.floor(Math.random() * thoughts.length);
-    return thoughts[index];
+
+    // Filter out the last thought to avoid repeats
+    const availableThoughts = thoughts.filter(t => t !== this.state.lastThought);
+
+    // If we filtered everything out (shouldn't happen unless pool size is 1), use full pool
+    const pool = availableThoughts.length > 0 ? availableThoughts : thoughts;
+
+    const index = Math.floor(Math.random() * pool.length);
+    return pool[index];
   }
 
   /**
-   * Get contextual thought based on session state
+   * Get contextual thought based on session state (with RNG for variety)
    */
   private getContextualThought(
     input: ClaudeCodeInput,
     db: DatabaseClient
   ): string | null {
-    // Check time of day
+    // Check time of day (70% chance to show)
     const hour = this.getCurrentHour();
     if (hour >= 22 || hour < 6) {
-      return hour >= 22 ? "Late night coding?" : "Early bird!";
+      if (Math.random() < 0.7) {
+        const thought = hour >= 22 ? "Late night coding?" : "Early bird!";
+        // Don't repeat the last thought
+        if (thought !== this.state.lastThought) {
+          return thought;
+        }
+      }
     }
 
     // Check git status
     if (input.git) {
-      if (input.git.isDirty) {
-        return "Hmm, lots of changes...";
-      } else {
-        // Clean git occasionally shows this
-        if (Math.random() < 0.3) {
-          return "Clean slate!";
+      // Dirty repo (50% chance to show)
+      if (input.git.isDirty && Math.random() < 0.5) {
+        const thought = "Hmm, lots of changes...";
+        if (thought !== this.state.lastThought) {
+          return thought;
         }
       }
 
-      // Check ahead/behind
-      if (input.git.ahead && input.git.ahead > 0) {
-        return "Ready to push!";
+      // Clean git (30% chance to show)
+      if (!input.git.isDirty && Math.random() < 0.3) {
+        const thought = "Clean slate!";
+        if (thought !== this.state.lastThought) {
+          return thought;
+        }
+      }
+
+      // Commits ahead (60% chance to show)
+      if (input.git.ahead && input.git.ahead > 0 && Math.random() < 0.6) {
+        const thought = "Ready to push!";
+        if (thought !== this.state.lastThought) {
+          return thought;
+        }
       }
     }
 
@@ -82,25 +269,73 @@ export class ThoughtsSegment extends Segment {
     const summary = db.getDailySummary(todayDate);
 
     if (summary) {
-      if (summary.total_cost > 10) {
-        return "Burning through tokens...";
-      } else if (summary.total_cost < 1) {
-        return "Just getting started";
+      // High usage (60% chance to show)
+      if (summary.total_cost > 10 && Math.random() < 0.6) {
+        const thought = "Burning through tokens...";
+        if (thought !== this.state.lastThought) {
+          return thought;
+        }
+      }
+
+      // Low usage (40% chance to show)
+      if (summary.total_cost < 1 && Math.random() < 0.4) {
+        const thought = "Just getting started";
+        if (thought !== this.state.lastThought) {
+          return thought;
+        }
       }
     }
 
-    // No strong contextual match
+    // No strong contextual match or all were repeats
     return null;
   }
 
   render(input: ClaudeCodeInput, db: DatabaseClient): SegmentData {
     const { display, colors } = this.config;
 
-    // Try to get contextual thought first, fallback to random
-    let thought = this.getContextualThought(input, db);
-    if (!thought) {
+    let thought: string;
+
+    // Decide which category to pick from: contextual, random, or API quote
+    // Equal probability (1/3 each) when API quotes are enabled
+    const rand = Math.random();
+    let useContextual = false;
+    let useApiQuote = false;
+
+    if (this.config.useApiQuotes) {
+      // Three categories: contextual, random, API quote (1/3 each)
+      if (rand < 0.33) {
+        useContextual = true;
+      } else if (rand < 0.66) {
+        useApiQuote = true;
+      }
+      // else: use random thought (default)
+    } else {
+      // Two categories: contextual, random (1/2 each)
+      useContextual = rand < 0.5;
+    }
+
+    // Try contextual thought if selected
+    if (useContextual) {
+      const contextualThought = this.getContextualThought(input, db);
+      if (contextualThought) {
+        thought = contextualThought;
+      } else {
+        // Fallback to random if no contextual match
+        thought = this.getRandomThought();
+      }
+    } else if (useApiQuote) {
+      // Try API quote if selected
+      const apiQuote = this.getApiQuote();
+      thought = apiQuote || this.getRandomThought();
+    } else {
+      // Use random thought
       thought = this.getRandomThought();
     }
+
+    // Save state to avoid repeating this thought
+    this.state.lastThought = thought;
+    this.state.lastUpdate = Date.now();
+    this.saveState();
 
     const parts: string[] = [];
 

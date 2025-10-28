@@ -155,6 +155,10 @@ function validateThoughtsSegment(segment: any): void {
     }
   }
 
+  if (segment.useApiQuotes !== undefined && typeof segment.useApiQuotes !== 'boolean') {
+    throw new Error("Thoughts segment useApiQuotes must be boolean");
+  }
+
   validateSegmentColors(segment.colors, 'thoughts');
 }
 

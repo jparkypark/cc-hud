@@ -68,6 +68,7 @@ export interface ThoughtsSegmentConfig {
   display: ThoughtsSegmentDisplay;
   colors: SegmentColors;
   customThoughts?: string[];  // Optional custom thought pool
+  useApiQuotes?: boolean;  // Enable zenquotes.io API for inspirational quotes (default: false)
 }
 
 // Union type for all segment configs
