@@ -43,6 +43,54 @@ const DEFAULT_THOUGHTS = [
   "TODO: fix this properly",
 ];
 
+/**
+ * Contextual thought variations
+ */
+const CONTEXTUAL_THOUGHTS = {
+  lateNight: [
+    "Late night coding?",
+    "Burning the midnight oil",
+    "Night owl mode activated",
+    "The bugs never sleep",
+  ],
+  earlyBird: [
+    "Early bird!",
+    "Morning code session",
+    "Fresh start to the day",
+    "Coffee and code time",
+  ],
+  dirty: [
+    "Hmm, lots of changes...",
+    "Things are getting messy",
+    "Refactoring in progress?",
+    "Work in progress",
+  ],
+  clean: [
+    "Clean slate!",
+    "All tidy now",
+    "Fresh and clean",
+    "Everything committed",
+  ],
+  ahead: [
+    "Ready to push!",
+    "Time to ship it",
+    "Commits waiting",
+    "Let's deploy this",
+  ],
+  highUsage: [
+    "Burning through tokens...",
+    "Claude's working overtime",
+    "Productive day!",
+    "AI-powered productivity",
+  ],
+  lowUsage: [
+    "Just getting started",
+    "Taking it easy today",
+    "Warming up",
+    "Light session",
+  ],
+};
+
 export class ThoughtsSegment extends Segment {
   protected config: ThoughtsSegmentConfig;
   private state: ThoughtsState;
@@ -219,6 +267,16 @@ export class ThoughtsSegment extends Segment {
   }
 
   /**
+   * Pick a random thought from an array (avoiding the last thought)
+   */
+  private pickRandomThought(thoughts: string[]): string {
+    const availableThoughts = thoughts.filter(t => t !== this.state.lastThought);
+    const pool = availableThoughts.length > 0 ? availableThoughts : thoughts;
+    const index = Math.floor(Math.random() * pool.length);
+    return pool[index];
+  }
+
+  /**
    * Get contextual thought based on session state (with RNG for variety)
    */
   private getContextualThought(
@@ -229,11 +287,8 @@ export class ThoughtsSegment extends Segment {
     const hour = this.getCurrentHour();
     if (hour >= 22 || hour < 6) {
       if (Math.random() < 0.7) {
-        const thought = hour >= 22 ? "Late night coding?" : "Early bird!";
-        // Don't repeat the last thought
-        if (thought !== this.state.lastThought) {
-          return thought;
-        }
+        const thoughts = hour >= 22 ? CONTEXTUAL_THOUGHTS.lateNight : CONTEXTUAL_THOUGHTS.earlyBird;
+        return this.pickRandomThought(thoughts);
       }
     }
 
@@ -241,26 +296,17 @@ export class ThoughtsSegment extends Segment {
     if (input.git) {
       // Dirty repo (50% chance to show)
       if (input.git.isDirty && Math.random() < 0.5) {
-        const thought = "Hmm, lots of changes...";
-        if (thought !== this.state.lastThought) {
-          return thought;
-        }
+        return this.pickRandomThought(CONTEXTUAL_THOUGHTS.dirty);
       }
 
       // Clean git (30% chance to show)
       if (!input.git.isDirty && Math.random() < 0.3) {
-        const thought = "Clean slate!";
-        if (thought !== this.state.lastThought) {
-          return thought;
-        }
+        return this.pickRandomThought(CONTEXTUAL_THOUGHTS.clean);
       }
 
       // Commits ahead (60% chance to show)
       if (input.git.ahead && input.git.ahead > 0 && Math.random() < 0.6) {
-        const thought = "Ready to push!";
-        if (thought !== this.state.lastThought) {
-          return thought;
-        }
+        return this.pickRandomThought(CONTEXTUAL_THOUGHTS.ahead);
       }
     }
 
@@ -271,22 +317,16 @@ export class ThoughtsSegment extends Segment {
     if (summary) {
       // High usage (60% chance to show)
       if (summary.total_cost > 10 && Math.random() < 0.6) {
-        const thought = "Burning through tokens...";
-        if (thought !== this.state.lastThought) {
-          return thought;
-        }
+        return this.pickRandomThought(CONTEXTUAL_THOUGHTS.highUsage);
       }
 
       // Low usage (40% chance to show)
       if (summary.total_cost < 1 && Math.random() < 0.4) {
-        const thought = "Just getting started";
-        if (thought !== this.state.lastThought) {
-          return thought;
-        }
+        return this.pickRandomThought(CONTEXTUAL_THOUGHTS.lowUsage);
       }
     }
 
-    // No strong contextual match or all were repeats
+    // No strong contextual match
     return null;
   }
 
