@@ -28,9 +28,9 @@ interface QuotesCache {
 const QUOTES_CACHE_DURATION = 60 * 60 * 1000;
 
 /**
- * Default thought pool for random rotation
+ * Default dev thought pool
  */
-const DEFAULT_THOUGHTS = [
+const DEV_THOUGHTS = [
   "Let's build something cool",
   "Coffee first, code later",
   "One bug at a time",
@@ -41,6 +41,27 @@ const DEFAULT_THOUGHTS = [
   "Documentation? What's that?",
   "Works on my machine",
   "TODO: fix this properly",
+  "Move fast, break things",
+  "Debug mode activated",
+  "Iteration over perfection",
+  "Make it work, then make it pretty",
+  "Test in production? YOLO",
+  "Naming things is hard",
+  "Tabs vs spaces? Don't care",
+  "git commit -m 'stuff'",
+  "Premature optimization is evil",
+  "Rubber duck debugging",
+  "It's not a bug, it's a feature",
+  "Legacy code strikes again",
+  "Need more monitors",
+  "Keyboard shortcuts FTW",
+  "Trust the process",
+  "Making the world a better place",
+  "You just brought piss to a shit fight you little fuck",
+  "This guy fucks",
+  "Tres commas",
+  "Not Hotdog",
+  "I don't want to live in a world where someone else makes the world a better place better than we do",
 ];
 
 /**
@@ -251,10 +272,10 @@ export class ThoughtsSegment extends Segment {
   }
 
   /**
-   * Get a random thought from the pool (avoiding the last one shown)
+   * Get a dev thought from the pool (avoiding the last one shown)
    */
-  private getRandomThought(): string {
-    const thoughts = this.config.customThoughts ?? DEFAULT_THOUGHTS;
+  private getDevThought(): string {
+    const thoughts = this.config.customThoughts ?? DEV_THOUGHTS;
 
     // Filter out the last thought to avoid repeats
     const availableThoughts = thoughts.filter(t => t !== this.state.lastThought);
@@ -335,22 +356,22 @@ export class ThoughtsSegment extends Segment {
 
     let thought: string;
 
-    // Decide which category to pick from: contextual, random, or API quote
+    // Decide which category to pick from: contextual, dev thought, or API quote
     // Equal probability (1/3 each) when API quotes are enabled
     const rand = Math.random();
     let useContextual = false;
     let useApiQuote = false;
 
     if (this.config.useApiQuotes) {
-      // Three categories: contextual, random, API quote (1/3 each)
+      // Three categories: contextual, dev thought, API quote (1/3 each)
       if (rand < 0.33) {
         useContextual = true;
       } else if (rand < 0.66) {
         useApiQuote = true;
       }
-      // else: use random thought (default)
+      // else: use dev thought (default)
     } else {
-      // Two categories: contextual, random (1/2 each)
+      // Two categories: contextual, dev thought (1/2 each)
       useContextual = rand < 0.5;
     }
 
@@ -360,16 +381,16 @@ export class ThoughtsSegment extends Segment {
       if (contextualThought) {
         thought = contextualThought;
       } else {
-        // Fallback to random if no contextual match
-        thought = this.getRandomThought();
+        // Fallback to dev thought if no contextual match
+        thought = this.getDevThought();
       }
     } else if (useApiQuote) {
       // Try API quote if selected
       const apiQuote = this.getApiQuote();
-      thought = apiQuote || this.getRandomThought();
+      thought = apiQuote || this.getDevThought();
     } else {
-      // Use random thought
-      thought = this.getRandomThought();
+      // Use dev thought
+      thought = this.getDevThought();
     }
 
     // Save state to avoid repeating this thought
