@@ -125,6 +125,26 @@ function validateGitSegment(segment: any): void {
   validateSegmentColors(segment.colors, 'git');
 }
 
+function validateBurnRateSegment(segment: any): void {
+  if (!segment.display) {
+    throw new Error("Burn rate segment must have 'display' config");
+  }
+
+  const { display } = segment;
+
+  if (typeof display.icon !== 'boolean') {
+    throw new Error("Burn rate segment display.icon must be boolean");
+  }
+
+  if (display.period !== 'hourly') {
+    throw new Error(
+      "Burn rate segment display.period must be 'hourly' (only value supported in MVP)"
+    );
+  }
+
+  validateSegmentColors(segment.colors, 'burnrate');
+}
+
 function validateThoughtsSegment(segment: any): void {
   if (!segment.display) {
     throw new Error("Thoughts segment must have 'display' config");
@@ -188,6 +208,9 @@ export function validateConfig(config: any): asserts config is Config {
       case 'usage':
         validateUsageSegment(segment);
         break;
+      case 'burnrate':
+        validateBurnRateSegment(segment);
+        break;
       case 'directory':
         validateDirectorySegment(segment);
         break;
@@ -199,7 +222,7 @@ export function validateConfig(config: any): asserts config is Config {
         break;
       default:
         throw new Error(
-          `Unknown segment type '${segment.type}' at index ${i}. Valid types: usage, directory, git, thoughts`
+          `Unknown segment type '${segment.type}' at index ${i}. Valid types: usage, burnrate, directory, git, thoughts`
         );
     }
   }

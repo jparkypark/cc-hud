@@ -39,8 +39,8 @@ export class DatabaseClient {
     }
 
     try {
-      // Calculate from sessions table instead of daily_summaries
-      // This matches ccusage's calculation more closely
+      // Calculate from sessions table using start_time (when API call happened)
+      // This gives accurate daily totals even with long-running sessions
       const query = this.db.query<{
         total_cost: number;
         total_input_tokens: number;
@@ -53,10 +53,10 @@ export class DatabaseClient {
           COALESCE(SUM(output_tokens), 0) as total_output_tokens,
           COALESCE(SUM(cache_tokens), 0) as total_cache_tokens
         FROM sessions
-        WHERE date(created_at, 'localtime') = $date
+        WHERE date(start_time, 'localtime') = ?
       `);
 
-      const result = query.get({ $date: date });
+      const result = query.get(date);
 
       if (!result) {
         return null;

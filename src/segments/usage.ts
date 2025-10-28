@@ -1,6 +1,6 @@
 /**
  * Usage segment - displays daily cost and token usage
- * Uses ccusage library for accurate cost calculation from JSONL transcripts
+ * Uses ccusage library for real-time cost calculation from JSONL transcripts
  */
 
 import type { ClaudeCodeInput, UsageSegmentConfig } from '../config';
@@ -52,6 +52,9 @@ export class UsageSegment extends Segment {
     this.config = config;
   }
 
+  /**
+   * Load today's data from ccusage
+   */
   async loadTodayData(): Promise<{
     cost: number;
     inputTokens: number;
@@ -78,11 +81,9 @@ export class UsageSegment extends Segment {
 
       try {
         // Load all data using ccusage
-        // Note: We load all data and filter manually because ccusage's date
-        // filtering doesn't seem to work reliably with since/until params
         // Use offline: false to fetch latest pricing (includes newer models like haiku-4-5)
         const data = await loadDailyUsageData({
-          offline: false, // Fetch latest pricing for accuracy
+          offline: false,
           timezone,
         });
 
@@ -106,7 +107,6 @@ export class UsageSegment extends Segment {
         process.stdout.write = originalProcessStdoutWrite;
       }
     } catch (error) {
-      // Note: console.error is restored by this point
       console.error('[cc-hud] Failed to load usage data from ccusage:', error);
       return { cost: 0, inputTokens: 0, outputTokens: 0 };
     }
@@ -122,7 +122,7 @@ export class UsageSegment extends Segment {
 
     // Add icon if enabled
     if (display.icon) {
-      parts.push('☉');  // Alchemical symbol for gold (sun)
+      parts.push('Σ');  // Sigma - summation (daily total)
     }
 
     if (display.cost) {

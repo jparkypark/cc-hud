@@ -28,6 +28,18 @@ export interface UsageSegmentConfig {
   colors: SegmentColors;
 }
 
+// Burn rate segment
+export interface BurnRateSegmentDisplay {
+  icon: boolean;
+  period: 'hourly';  // Only 'hourly' in MVP
+}
+
+export interface BurnRateSegmentConfig {
+  type: 'burnrate';
+  display: BurnRateSegmentDisplay;
+  colors: SegmentColors;
+}
+
 // Directory segment
 export type PathDisplayMode = 'name' | 'full' | 'project';
 
@@ -74,6 +86,7 @@ export interface ThoughtsSegmentConfig {
 // Union type for all segment configs
 export type SegmentConfig =
   | UsageSegmentConfig
+  | BurnRateSegmentConfig
   | DirectorySegmentConfig
   | GitSegmentConfig
   | ThoughtsSegmentConfig;

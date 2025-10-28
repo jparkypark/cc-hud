@@ -32,29 +32,20 @@ const QUOTES_CACHE_DURATION = 60 * 60 * 1000;
  */
 const DEV_THOUGHTS = [
   "Let's build something cool",
-  "Coffee first, code later",
-  "One bug at a time",
-  "Keep it simple",
   "Ship it!",
-  "This could be cleaner...",
-  "Time to refactor?",
-  "Documentation? What's that?",
   "Works on my machine",
   "TODO: fix this properly",
   "Move fast, break things",
   "Debug mode activated",
   "Iteration over perfection",
   "Make it work, then make it pretty",
-  "Test in production? YOLO",
-  "Naming things is hard",
-  "Tabs vs spaces? Don't care",
   "git commit -m 'stuff'",
   "Premature optimization is evil",
-  "Rubber duck debugging",
+  "Have you tried explaining it to the rubber ducky?",
   "It's not a bug, it's a feature",
-  "Legacy code strikes again",
-  "Need more monitors",
-  "Keyboard shortcuts FTW",
+  "Nothing is as permanent as a temporary solution that works",
+  "If one programmer can do it in one week, then 2 programmers can do it in 2 weeks",
+  "We do things not because they are easy, but because we thought they would be easy",
   "Trust the process",
   "Making the world a better place",
   "You just brought piss to a shit fight you little fuck",
@@ -62,6 +53,23 @@ const DEV_THOUGHTS = [
   "Tres commas",
   "Not Hotdog",
   "I don't want to live in a world where someone else makes the world a better place better than we do",
+  "The code was working perfectly until I started testing it",
+  "99 little bugs in the code, 99 little bugs. Take one down, patch it around, 127 little bugs in the code",
+  "I don't always test my code, but when I do, I do it in production",
+  "First, solve the problem. Then, write the code. Then, fix what you broke",
+  "Technical debt is just early retirement for your future self",
+  "There's no problem that can't be solved by adding another layer of abstraction",
+  "Sometimes the best code is no code at all. Unfortunately, that's not what they're paying us for",
+  "The only thing more expensive than writing tests is not writing tests",
+  "I'm not saying it's impossible, I'm just saying it'll take 3 months and you want it in 2 weeks",
+  "A week of coding can save you an hour of planning",
+  "It'll be ready when it's ready, which is definitely not when I said it would be ready",
+  "It's always DNS. Except when it's not. Then it's the cache",
+  "Everyone has a testing environment. Some people are lucky enough to have a separate production environment",
+  "The best debugger is 20 years of experience. The second best is print statements",
+  "Code never lies, comments sometimes do",
+  "Any code that hasn't been looked at in 6 months might as well have been written by someone else",
+  "Refactoring: making code better without making it work better",
 ];
 
 /**
@@ -210,10 +218,10 @@ export class ThoughtsSegment extends Segment {
         throw new Error(`API request failed: ${response.status}`);
       }
 
-      const data = await response.json();
+      const data = await response.json() as Array<{ q: string; a: string }>;
 
       // Format: [{ q: "quote text", a: "author" }, ...]
-      return data.map((item: any) => `${item.q} - ${item.a}`);
+      return data.map((item) => `${item.q} - ${item.a}`);
     } catch (error) {
       console.error('[cc-hud] Failed to fetch quotes from API:', error);
       return [];
@@ -402,7 +410,7 @@ export class ThoughtsSegment extends Segment {
 
     // Add icon if enabled
     if (display.icon) {
-      parts.push('💭');
+      parts.push('◇');  // White diamond
     }
 
     // Add thought with optional quotes
