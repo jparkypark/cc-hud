@@ -61,14 +61,20 @@ export class UsageSegment extends Segment {
       const today = getTodayDate();
       const timezone = getSystemTimezone();
 
-      // Suppress ccusage logging by temporarily redirecting console and process output
+      // Suppress ccusage logging by temporarily redirecting all output
       const originalStderr = console.error;
       const originalConsoleLog = console.log;
+      const originalConsoleInfo = console.info;
+      const originalConsoleWarn = console.warn;
       const originalProcessStderrWrite = process.stderr.write;
+      const originalProcessStdoutWrite = process.stdout.write;
 
       console.error = () => {};
       console.log = () => {};
+      console.info = () => {};
+      console.warn = () => {};
       process.stderr.write = () => true;
+      process.stdout.write = () => true;
 
       try {
         // Load all data using ccusage
@@ -94,7 +100,10 @@ export class UsageSegment extends Segment {
         // Restore console and process methods
         console.error = originalStderr;
         console.log = originalConsoleLog;
+        console.info = originalConsoleInfo;
+        console.warn = originalConsoleWarn;
         process.stderr.write = originalProcessStderrWrite;
+        process.stdout.write = originalProcessStdoutWrite;
       }
     } catch (error) {
       // Note: console.error is restored by this point
