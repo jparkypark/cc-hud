@@ -46,6 +46,7 @@ export type PathDisplayMode = 'name' | 'full' | 'project';
 export interface DirectorySegmentDisplay {
   icon: boolean;
   pathMode: PathDisplayMode;  // 'name' = dir name only, 'full' = ~/path, 'project' = project/path
+  rootWarning: boolean;  // Show warning when not in git project root
 }
 
 export interface DirectorySegmentConfig {

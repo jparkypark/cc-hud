@@ -46,6 +46,10 @@ export class DirectorySegment extends Segment {
       text += '› ';  // Right angle quote
     }
 
+    // Check if we're in project root (works with worktrees)
+    const gitRoot = getGitRoot(cwd);
+    const isInRoot = gitRoot && cwd === gitRoot;
+
     switch (display.pathMode) {
       case 'full':
         // Replace home directory with ~
@@ -57,7 +61,6 @@ export class DirectorySegment extends Segment {
         // e.g., if git root is ~/worktrees/spacewalker-eng-1446
         //       and cwd is ~/worktrees/spacewalker-eng-1446/apps/backend
         //       show: spacewalker-eng-1446/apps/backend
-        const gitRoot = getGitRoot(cwd);
 
         if (gitRoot && cwd.startsWith(gitRoot)) {
           const projectName = basename(gitRoot);
@@ -75,6 +78,11 @@ export class DirectorySegment extends Segment {
         // Just the directory name
         text += cwd.split('/').pop() || cwd;
         break;
+    }
+
+    // Add warning if not in project root
+    if (display.rootWarning && gitRoot && !isInRoot) {
+      text += ' ✗ not root';
     }
 
     return {

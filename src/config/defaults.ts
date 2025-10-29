@@ -24,6 +24,7 @@ export const DEFAULT_CONFIG: Config = {
       display: {
         icon: true,
         pathMode: 'name',
+        rootWarning: false,
       },
       colors: {
         fg: '#d8dee9',

@@ -92,6 +92,10 @@ function validateDirectorySegment(segment: any): void {
     );
   }
 
+  if (display.rootWarning !== undefined && typeof display.rootWarning !== 'boolean') {
+    throw new Error("Directory segment display.rootWarning must be boolean");
+  }
+
   validateSegmentColors(segment.colors, 'directory');
 }
 
