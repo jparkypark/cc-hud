@@ -97,7 +97,7 @@ export class DirectorySegment extends Segment {
       }
 
       if (showWarning) {
-        text += ' ✗ not root';
+        text += ' ✗ session not started in project root';
       }
     }
 
