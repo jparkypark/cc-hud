@@ -23,9 +23,35 @@ export class DatabaseClient {
     }
 
     try {
-      this.db = new Database(path, { readonly: true });
+      // Open with write access for session tracking
+      this.db = new Database(path, {
+        create: true,
+        readwrite: true
+      });
+      this.initializeSessionsTable();
     } catch (error) {
       console.error(`[cc-hud] Failed to open database: ${error}`);
+    }
+  }
+
+  /**
+   * Initialize hud_sessions table for session tracking
+   */
+  private initializeSessionsTable(): void {
+    if (!this.db) return;
+
+    try {
+      this.db.exec(`
+        CREATE TABLE IF NOT EXISTS hud_sessions (
+          session_id TEXT PRIMARY KEY,
+          initial_cwd TEXT NOT NULL,
+          is_root_at_start INTEGER NOT NULL,
+          first_seen_at INTEGER NOT NULL,
+          last_seen_at INTEGER NOT NULL
+        )
+      `);
+    } catch (error) {
+      console.error(`[cc-hud] Failed to create hud_sessions table: ${error}`);
     }
   }
 
@@ -86,6 +112,91 @@ export class DatabaseClient {
     const month = String(now.getMonth() + 1).padStart(2, '0');
     const day = String(now.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
+  }
+
+  /**
+   * Get session root status (whether session started in git root)
+   * Caches initial state for session persistence
+   */
+  getSessionRootStatus(
+    sessionId: string,
+    currentCwd: string,
+    gitRoot: string
+  ): boolean {
+    if (!this.db) {
+      // Fallback: return current state if db unavailable
+      return currentCwd === gitRoot;
+    }
+
+    try {
+      // Check if session exists
+      const selectQuery = this.db.query<
+        { is_root_at_start: number },
+        [string]
+      >('SELECT is_root_at_start FROM hud_sessions WHERE session_id = ?');
+
+      const existing = selectQuery.get(sessionId);
+
+      if (existing) {
+        // Update last_seen_at timestamp
+        const updateQuery = this.db.query(
+          'UPDATE hud_sessions SET last_seen_at = ? WHERE session_id = ?'
+        );
+        updateQuery.run(Date.now(), sessionId);
+
+        return existing.is_root_at_start === 1;
+      }
+
+      // New session: compute and cache initial state
+      const isRootAtStart = currentCwd === gitRoot;
+      const now = Date.now();
+
+      const insertQuery = this.db.query(`
+        INSERT INTO hud_sessions (
+          session_id,
+          initial_cwd,
+          is_root_at_start,
+          first_seen_at,
+          last_seen_at
+        ) VALUES (?, ?, ?, ?, ?)
+      `);
+
+      insertQuery.run(
+        sessionId,
+        currentCwd,
+        isRootAtStart ? 1 : 0,
+        now,
+        now
+      );
+
+      return isRootAtStart;
+    } catch (error) {
+      console.error(`[cc-hud] Failed to get session root status: ${error}`);
+      // Fallback on error
+      return currentCwd === gitRoot;
+    }
+  }
+
+  /**
+   * Cleanup old sessions from hud_sessions table
+   * @param daysOld Number of days after which to delete sessions (default: 7)
+   * @returns Number of sessions deleted
+   */
+  cleanupOldSessions(daysOld: number = 7): number {
+    if (!this.db) return 0;
+
+    try {
+      const cutoffTime = Date.now() - daysOld * 24 * 60 * 60 * 1000;
+      const deleteQuery = this.db.query(
+        'DELETE FROM hud_sessions WHERE last_seen_at < ?'
+      );
+
+      const result = deleteQuery.run(cutoffTime);
+      return result.changes;
+    } catch (error) {
+      console.error(`[cc-hud] Failed to cleanup old sessions: ${error}`);
+      return 0;
+    }
   }
 
   /**

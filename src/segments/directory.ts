@@ -46,9 +46,8 @@ export class DirectorySegment extends Segment {
       text += '› ';  // Right angle quote
     }
 
-    // Check if we're in project root (works with worktrees)
+    // Get git root for path display and warning detection
     const gitRoot = getGitRoot(cwd);
-    const isInRoot = gitRoot && cwd === gitRoot;
 
     switch (display.pathMode) {
       case 'full':
@@ -81,8 +80,25 @@ export class DirectorySegment extends Segment {
     }
 
     // Add warning if not in project root
-    if (display.rootWarning && gitRoot && !isInRoot) {
-      text += ' ✗ not root';
+    if (display.rootWarning && gitRoot) {
+      let showWarning = false;
+
+      if (input.session?.id) {
+        // Session-based: check cached initial state
+        const wasRootAtStart = db.getSessionRootStatus(
+          input.session.id,
+          cwd,
+          gitRoot
+        );
+        showWarning = !wasRootAtStart;
+      } else {
+        // Fallback: current cwd check (when no session.id)
+        showWarning = cwd !== gitRoot;
+      }
+
+      if (showWarning) {
+        text += ' ✗ not root';
+      }
     }
 
     return {
