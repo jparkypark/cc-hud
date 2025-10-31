@@ -83,16 +83,19 @@ export class DirectorySegment extends Segment {
     if (display.rootWarning && gitRoot) {
       let showWarning = false;
 
-      if (input.session?.id) {
+      // Get session ID from either location (Claude Code uses session_id at top level)
+      const sessionId = (input as any).session_id || input.session?.id;
+
+      if (sessionId) {
         // Session-based: check cached initial state
         const wasRootAtStart = db.getSessionRootStatus(
-          input.session.id,
+          sessionId,
           cwd,
           gitRoot
         );
         showWarning = !wasRootAtStart;
       } else {
-        // Fallback: current cwd check (when no session.id)
+        // Fallback: current cwd check (when no session ID)
         showWarning = cwd !== gitRoot;
       }
 
