@@ -41,11 +41,11 @@ export interface BurnRateSegmentConfig {
 }
 
 // Directory segment
-export type PathDisplayMode = 'name' | 'full' | 'project';
+export type PathDisplayMode = 'name' | 'full' | 'project' | 'parent';
 
 export interface DirectorySegmentDisplay {
   icon: boolean;
-  pathMode: PathDisplayMode;  // 'name' = dir name only, 'full' = ~/path, 'project' = project/path
+  pathMode: PathDisplayMode;  // 'name' = dir name only, 'full' = ~/path, 'project' = project/path, 'parent' = parent-dir/project/path
   rootWarning: boolean;  // Show warning when not in git project root
 }
 

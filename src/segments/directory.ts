@@ -72,6 +72,29 @@ export class DirectorySegment extends Segment {
         break;
       }
 
+      case 'parent': {
+        // Show path relative to parent of git repository root
+        // e.g., if git root is /Users/jp/repos/cc-hud
+        //       and cwd is /Users/jp/repos/cc-hud/src/segments
+        //       show: repos/cc-hud/src/segments
+
+        if (gitRoot && cwd.startsWith(gitRoot)) {
+          const gitRootParts = gitRoot.split('/').filter(p => p);
+          const cwdParts = cwd.split('/').filter(p => p);
+
+          // Get the parent directory name (one level up from git root)
+          const parentName = gitRootParts[gitRootParts.length - 2] || '';
+          const projectName = basename(gitRoot);
+          const relativePath = cwd.slice(gitRoot.length);
+
+          text += parentName ? `${parentName}/${projectName}${relativePath}` : `${projectName}${relativePath}`;
+        } else {
+          // Fallback to just directory name if not in a git repo
+          text += cwd.split('/').pop() || cwd;
+        }
+        break;
+      }
+
       case 'name':
       default:
         // Just the directory name

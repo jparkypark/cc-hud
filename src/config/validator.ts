@@ -86,9 +86,9 @@ function validateDirectorySegment(segment: any): void {
     throw new Error("Directory segment display.pathMode is required");
   }
 
-  if (!['name', 'full', 'project'].includes(display.pathMode)) {
+  if (!['name', 'full', 'project', 'parent'].includes(display.pathMode)) {
     throw new Error(
-      `Directory segment display.pathMode must be 'name', 'full', or 'project'. Got: ${display.pathMode}`
+      `Directory segment display.pathMode must be 'name', 'full', 'project', or 'parent'. Got: ${display.pathMode}`
     );
   }
 
