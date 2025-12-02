@@ -16,6 +16,7 @@ export interface HourlyUsage {
 }
 
 // Pricing per million tokens (from Anthropic's official pricing)
+// Cache pricing: 5min = 1.25x base, 1hr = 2x base, read = 0.1x base
 const PRICING: Record<string, {
   input: number;
   output: number;
@@ -23,6 +24,22 @@ const PRICING: Record<string, {
   cache_write_1h: number;
   cache_read: number;
 }> = {
+  // Opus 4.5 models
+  'claude-opus-4-5-20251101': {
+    input: 5,
+    output: 25,
+    cache_write_5m: 6.25,
+    cache_write_1h: 10,
+    cache_read: 0.5,
+  },
+  'claude-opus-4-5': {
+    input: 5,
+    output: 25,
+    cache_write_5m: 6.25,
+    cache_write_1h: 10,
+    cache_read: 0.5,
+  },
+  // Sonnet 4.5 models
   'claude-sonnet-4-5-20250929': {
     input: 3,
     output: 15,
@@ -37,6 +54,7 @@ const PRICING: Record<string, {
     cache_write_1h: 6,
     cache_read: 0.3,
   },
+  // Haiku 4.5 models
   'claude-haiku-4-5-20251001': {
     input: 1,
     output: 5,
@@ -51,6 +69,7 @@ const PRICING: Record<string, {
     cache_write_1h: 2,
     cache_read: 0.1,
   },
+  // Legacy 3.5 models
   'claude-3-5-sonnet-20241022': {
     input: 3,
     output: 15,
