@@ -4,6 +4,8 @@
 
 export type SeparatorStyle = 'angled' | 'thin' | 'rounded' | 'flame' | 'slant' | 'backslant';
 
+export type ColorMode = 'background' | 'text';
+
 export interface SegmentColors {
   fg: string;
   bg: string;
@@ -12,6 +14,7 @@ export interface SegmentColors {
 export interface ThemeConfig {
   powerline: boolean;
   separatorStyle: SeparatorStyle;
+  colorMode: ColorMode;  // 'background' = filled bg (default), 'text' = colored text only
 }
 
 // Usage segment

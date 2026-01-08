@@ -43,6 +43,7 @@ export function renderPowerline(
 ): string {
   // Get the right separator for the configured style
   const separator = SEPARATORS[theme.separatorStyle].right;
+  const isTextMode = theme.colorMode === 'text';
 
   const parts: string[] = [];
 
@@ -54,16 +55,26 @@ export function renderPowerline(
     const nextSegment = nonEmptySegments[i + 1];
 
     // Render segment text with padding and colors
-    const styledText = chalk
-      .hex(segment.colors.fg)
-      .bgHex(segment.colors.bg)(` ${segment.text} `);
+    let styledText: string;
+    if (isTextMode) {
+      // Text mode: only foreground color, no background
+      styledText = chalk.hex(segment.colors.fg)(` ${segment.text} `);
+    } else {
+      // Background mode: both foreground and background colors
+      styledText = chalk
+        .hex(segment.colors.fg)
+        .bgHex(segment.colors.bg)(` ${segment.text} `);
+    }
 
     parts.push(styledText);
 
     // Add separator between segments
-    if (theme.powerline) {
-      if (nextSegment) {
-        // Separator between two segments
+    if (nextSegment) {
+      if (isTextMode) {
+        // Text mode: simple pipe separator with dimmed color
+        parts.push(chalk.dim('|'));
+      } else if (theme.powerline) {
+        // Background mode with powerline: colored separators
         // Foreground = current segment bg (darkened to compensate for font rendering)
         // Background = next segment bg
         const darkenedFg = darkenColor(segment.colors.bg, 0.1);
@@ -72,12 +83,12 @@ export function renderPowerline(
           .bgHex(nextSegment.colors.bg)(separator);
 
         parts.push(styledSeparator);
-      } else {
-        // Final separator (current segment bg on terminal default, darkened)
-        const darkenedFg = darkenColor(segment.colors.bg, 0.1);
-        const styledSeparator = chalk.hex(darkenedFg)(separator);
-        parts.push(styledSeparator);
       }
+    } else if (!isTextMode && theme.powerline) {
+      // Final separator (only in background mode with powerline)
+      const darkenedFg = darkenColor(segment.colors.bg, 0.1);
+      const styledSeparator = chalk.hex(darkenedFg)(separator);
+      parts.push(styledSeparator);
     }
   }
 

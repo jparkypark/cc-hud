@@ -2,7 +2,7 @@
  * Configuration validation
  */
 
-import type { Config, SeparatorStyle } from './types';
+import type { Config, SeparatorStyle, ColorMode } from './types';
 
 const VALID_SEPARATOR_STYLES: SeparatorStyle[] = [
   'angled',
@@ -12,6 +12,8 @@ const VALID_SEPARATOR_STYLES: SeparatorStyle[] = [
   'slant',
   'backslant',
 ];
+
+const VALID_COLOR_MODES: ColorMode[] = ['background', 'text'];
 
 const HEX_COLOR_REGEX = /^#[0-9A-Fa-f]{6}$/;
 
@@ -247,6 +249,12 @@ export function validateConfig(config: any): asserts config is Config {
   if (!VALID_SEPARATOR_STYLES.includes(config.theme.separatorStyle)) {
     throw new Error(
       `Invalid theme.separatorStyle: ${config.theme.separatorStyle}. Valid options: ${VALID_SEPARATOR_STYLES.join(', ')}`
+    );
+  }
+
+  if (config.theme.colorMode !== undefined && !VALID_COLOR_MODES.includes(config.theme.colorMode)) {
+    throw new Error(
+      `Invalid theme.colorMode: ${config.theme.colorMode}. Valid options: ${VALID_COLOR_MODES.join(', ')}`
     );
   }
 }

@@ -49,5 +49,6 @@ export const DEFAULT_CONFIG: Config = {
   theme: {
     powerline: true,
     separatorStyle: 'angled',
+    colorMode: 'background',
   },
 };
