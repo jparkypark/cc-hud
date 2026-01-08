@@ -24,8 +24,8 @@ export class PrSegment extends Segment {
     // Fetch PR information using gh CLI
     const pr = getPrInfoSync(cwd);
 
-    // If no PR exists for this branch, show "no pr"
-    if (!pr) {
+    // If no PR exists or PR is not open, show "no pr"
+    if (!pr || pr.state !== 'OPEN') {
       const parts: string[] = [];
       if (display.icon) {
         parts.push('↑↰');

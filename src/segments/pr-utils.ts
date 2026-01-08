@@ -5,6 +5,7 @@
 export interface PrInfo {
   number: number;
   url: string;
+  state: 'OPEN' | 'CLOSED' | 'MERGED';
 }
 
 /**
@@ -15,7 +16,7 @@ export function getPrInfoSync(cwd: string): PrInfo | null {
   try {
     // Run gh pr view to get PR info for current branch
     const result = Bun.spawnSync(
-      ['gh', 'pr', 'view', '--json', 'number,url'],
+      ['gh', 'pr', 'view', '--json', 'number,url,state'],
       { cwd }
     );
 
@@ -29,13 +30,14 @@ export function getPrInfoSync(cwd: string): PrInfo | null {
 
     const data = JSON.parse(output);
 
-    if (typeof data.number !== 'number' || typeof data.url !== 'string') {
+    if (typeof data.number !== 'number' || typeof data.url !== 'string' || typeof data.state !== 'string') {
       return null;
     }
 
     return {
       number: data.number,
       url: data.url,
+      state: data.state as PrInfo['state'],
     };
   } catch {
     // JSON parse error or other failure
