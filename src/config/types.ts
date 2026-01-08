@@ -87,13 +87,26 @@ export interface ThoughtsSegmentConfig {
   useApiQuotes?: boolean;  // Enable zenquotes.io API for inspirational quotes (default: false)
 }
 
+// PR segment
+export interface PrSegmentDisplay {
+  icon: boolean;    // Show PR icon
+  number: boolean;  // Show PR number
+}
+
+export interface PrSegmentConfig {
+  type: 'pr';
+  display: PrSegmentDisplay;
+  colors: SegmentColors;
+}
+
 // Union type for all segment configs
 export type SegmentConfig =
   | UsageSegmentConfig
   | BurnRateSegmentConfig
   | DirectorySegmentConfig
   | GitSegmentConfig
-  | ThoughtsSegmentConfig;
+  | ThoughtsSegmentConfig
+  | PrSegmentConfig;
 
 // Main config
 export interface Config {
