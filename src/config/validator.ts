@@ -206,6 +206,28 @@ function validatePrSegment(segment: any): void {
   validateSegmentColors(segment.colors, 'pr');
 }
 
+function validateTimeSegment(segment: any): void {
+  if (!segment.display) {
+    throw new Error("Time segment must have 'display' config");
+  }
+
+  const { display } = segment;
+
+  if (typeof display.icon !== 'boolean') {
+    throw new Error("Time segment display.icon must be boolean");
+  }
+
+  if (!['12h', '24h'].includes(display.format)) {
+    throw new Error("Time segment display.format must be '12h' or '24h'");
+  }
+
+  if (typeof display.seconds !== 'boolean') {
+    throw new Error("Time segment display.seconds must be boolean");
+  }
+
+  validateSegmentColors(segment.colors, 'time');
+}
+
 export function validateConfig(config: any): asserts config is Config {
   if (!config) {
     throw new Error('Config cannot be null or undefined');
@@ -247,9 +269,12 @@ export function validateConfig(config: any): asserts config is Config {
       case 'pr':
         validatePrSegment(segment);
         break;
+      case 'time':
+        validateTimeSegment(segment);
+        break;
       default:
         throw new Error(
-          `Unknown segment type '${segment.type}' at index ${i}. Valid types: usage, pace, directory, git, thoughts, pr`
+          `Unknown segment type '${segment.type}' at index ${i}. Valid types: usage, pace, directory, git, thoughts, pr, time`
         );
     }
   }

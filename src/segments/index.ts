@@ -10,6 +10,7 @@ import { DirectorySegment } from './directory';
 import { GitSegment } from './git';
 import { ThoughtsSegment } from './thoughts';
 import { PrSegment } from './pr';
+import { TimeSegment } from './time';
 
 export * from './base';
 export * from './usage';
@@ -18,6 +19,7 @@ export * from './directory';
 export * from './git';
 export * from './thoughts';
 export * from './pr';
+export * from './time';
 
 /**
  * Get segment class by type
@@ -36,6 +38,8 @@ export function createSegment(config: SegmentConfig): Segment {
       return new ThoughtsSegment(config);
     case 'pr':
       return new PrSegment(config);
+    case 'time':
+      return new TimeSegment(config);
     default:
       // TypeScript should prevent this, but just in case
       throw new Error(`Unknown segment type: ${(config as any).type}`);

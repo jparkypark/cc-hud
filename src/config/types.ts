@@ -99,6 +99,21 @@ export interface PrSegmentConfig {
   colors: SegmentColors;
 }
 
+// Time segment
+export type TimeFormat = '12h' | '24h';
+
+export interface TimeSegmentDisplay {
+  icon: boolean;
+  format: TimeFormat;
+  seconds: boolean;  // Show seconds
+}
+
+export interface TimeSegmentConfig {
+  type: 'time';
+  display: TimeSegmentDisplay;
+  colors: SegmentColors;
+}
+
 // Union type for all segment configs
 export type SegmentConfig =
   | UsageSegmentConfig
@@ -106,7 +121,8 @@ export type SegmentConfig =
   | DirectorySegmentConfig
   | GitSegmentConfig
   | ThoughtsSegmentConfig
-  | PrSegmentConfig;
+  | PrSegmentConfig
+  | TimeSegmentConfig;
 
 // Main config
 export interface Config {
