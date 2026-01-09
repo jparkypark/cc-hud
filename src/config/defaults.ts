@@ -7,28 +7,15 @@ import type { Config } from './types';
 export const DEFAULT_CONFIG: Config = {
   segments: [
     {
-      type: 'usage',
-      display: {
-        icon: true,
-        cost: true,
-        tokens: false,
-        period: 'today',
-      },
-      colors: {
-        fg: '#88c0d0',
-        bg: '#2e3440',
-      },
-    },
-    {
       type: 'directory',
       display: {
         icon: true,
-        pathMode: 'name',
+        pathMode: 'parent',
         rootWarning: false,
       },
       colors: {
-        fg: '#d8dee9',
-        bg: '#2e3440',
+        fg: '#ff6666',
+        bg: '#ec4899',
       },
     },
     {
@@ -41,14 +28,73 @@ export const DEFAULT_CONFIG: Config = {
         behind: true,
       },
       colors: {
-        fg: '#8fbcbb',
-        bg: '#2e3440',
+        fg: '#ffbd55',
+        bg: '#f97316',
       },
+    },
+    {
+      type: 'pr',
+      display: {
+        icon: true,
+        number: true,
+      },
+      colors: {
+        fg: '#ffff66',
+        bg: '#10b981',
+      },
+    },
+    {
+      type: 'usage',
+      display: {
+        icon: true,
+        cost: true,
+        tokens: false,
+        period: 'today',
+      },
+      colors: {
+        fg: '#9de24f',
+        bg: '#3b82f6',
+      },
+    },
+    {
+      type: 'pace',
+      display: {
+        icon: true,
+        period: 'hourly',
+      },
+      colors: {
+        fg: '#87cefa',
+        bg: '#9333ea',
+      },
+    },
+    {
+      type: 'time',
+      display: {
+        icon: true,
+        format: '12h',
+        seconds: false,
+      },
+      colors: {
+        fg: '#c084fc',
+        bg: '#9333ea',
+      },
+    },
+    {
+      type: 'thoughts',
+      display: {
+        icon: true,
+        quotes: false,
+      },
+      colors: {
+        fg: '#9ca3af',
+        bg: '#6b7280',
+      },
+      useApiQuotes: true,
     },
   ],
   theme: {
     powerline: true,
     separatorStyle: 'angled',
-    colorMode: 'background',
+    colorMode: 'text',
   },
 };
