@@ -31,15 +31,15 @@ export interface UsageSegmentConfig {
   colors: SegmentColors;
 }
 
-// Burn rate segment
-export interface BurnRateSegmentDisplay {
+// Pace segment
+export interface PaceSegmentDisplay {
   icon: boolean;
   period: 'hourly';  // Only 'hourly' in MVP
 }
 
-export interface BurnRateSegmentConfig {
-  type: 'burnrate';
-  display: BurnRateSegmentDisplay;
+export interface PaceSegmentConfig {
+  type: 'pace';
+  display: PaceSegmentDisplay;
   colors: SegmentColors;
 }
 
@@ -102,7 +102,7 @@ export interface PrSegmentConfig {
 // Union type for all segment configs
 export type SegmentConfig =
   | UsageSegmentConfig
-  | BurnRateSegmentConfig
+  | PaceSegmentConfig
   | DirectorySegmentConfig
   | GitSegmentConfig
   | ThoughtsSegmentConfig

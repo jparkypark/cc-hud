@@ -9,10 +9,12 @@ import { homedir } from 'os';
 
 export interface HourlyUsage {
   cost: number;
+  pace: number;  // Extrapolated $/hr based on active time
   inputTokens: number;
   outputTokens: number;
   cacheTokens: number;
   apiCalls: number;
+  activeMinutes: number;  // Minutes since first activity in window
 }
 
 // Pricing per million tokens (from Anthropic's official pricing)
@@ -131,7 +133,7 @@ function calculateEntryCost(entry: any): number {
 /**
  * Calculate usage for the last hour by reading JSONL transcripts
  */
-export async function calculateHourlyBurnRate(): Promise<HourlyUsage> {
+export async function calculatePace(): Promise<HourlyUsage> {
   const projectsDir = join(homedir(), '.claude', 'projects');
   const oneHourAgo = Date.now() - (60 * 60 * 1000);
 
@@ -160,6 +162,7 @@ export async function calculateHourlyBurnRate(): Promise<HourlyUsage> {
   let totalOutputTokens = 0;
   let totalCacheTokens = 0;
   let apiCalls = 0;
+  let earliestTimestamp = Infinity;
 
   for (const filePath of recentFiles) {
     const content = readFileSync(filePath, 'utf-8');
@@ -171,6 +174,11 @@ export async function calculateHourlyBurnRate(): Promise<HourlyUsage> {
         const entryTime = new Date(entry.timestamp).getTime();
 
         if (entryTime > oneHourAgo && entry.message?.usage) {
+          // Track earliest activity
+          if (entryTime < earliestTimestamp) {
+            earliestTimestamp = entryTime;
+          }
+
           // Calculate cost
           const cost = calculateEntryCost(entry);
           totalCost += cost;
@@ -198,11 +206,22 @@ export async function calculateHourlyBurnRate(): Promise<HourlyUsage> {
     }
   }
 
+  // Calculate pace (extrapolated $/hr based on active time)
+  const now = Date.now();
+  const activeMs = earliestTimestamp === Infinity ? 0 : now - earliestTimestamp;
+  const activeMinutes = activeMs / (1000 * 60);
+  const activeHours = activeMs / (1000 * 60 * 60);
+
+  // Pace: extrapolate to hourly rate, with minimum 1 minute to avoid division issues
+  const pace = activeHours > 0 ? totalCost / Math.max(activeHours, 1 / 60) : 0;
+
   return {
     cost: totalCost,
+    pace,
     inputTokens: totalInputTokens,
     outputTokens: totalOutputTokens,
     cacheTokens: totalCacheTokens,
     apiCalls,
+    activeMinutes,
   };
 }
