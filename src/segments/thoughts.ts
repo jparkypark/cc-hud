@@ -410,7 +410,7 @@ export class ThoughtsSegment extends Segment {
 
     // Add icon if enabled
     if (display.icon) {
-      parts.push('❇');  // Sparkle
+      parts.push('✦');  // Four-pointed star (same as Claude.ai)
     }
 
     // Add thought with optional quotes
