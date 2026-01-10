@@ -18,7 +18,7 @@ export interface HourlyUsage {
 }
 
 export interface PaceOptions {
-  halfLifeMinutes?: number;  // EWMA half-life in minutes (default: 5)
+  halfLifeMinutes?: number;  // EWMA half-life in minutes (default: 7)
 }
 
 interface TimestampedCost {
@@ -182,7 +182,7 @@ function calculateEntryCost(entry: any): number {
  * Uses EWMA (Exponential Weighted Moving Average) for pace calculation
  */
 export async function calculatePace(options: PaceOptions = {}): Promise<HourlyUsage> {
-  const { halfLifeMinutes = 5 } = options;
+  const { halfLifeMinutes = 7 } = options;
   const halfLifeMs = halfLifeMinutes * 60 * 1000;
 
   const projectsDir = join(homedir(), '.claude', 'projects');

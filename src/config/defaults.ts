@@ -61,7 +61,7 @@ export const DEFAULT_CONFIG: Config = {
       display: {
         icon: true,
         period: 'hourly',
-        halfLifeMinutes: 5,  // 5-minute half-life for EWMA smoothing
+        halfLifeMinutes: 7,  // ~10 minute effective window for EWMA smoothing
       },
       colors: {
         fg: '#87cefa',
