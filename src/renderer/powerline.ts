@@ -54,17 +54,22 @@ export function renderPowerline(
     const segment = nonEmptySegments[i];
     const nextSegment = nonEmptySegments[i + 1];
 
+    // Replace regular spaces with non-breaking spaces (U+00A0) so terminal
+    // won't break inside a segment during word-wrap
+    const nbspText = segment.text.replace(/ /g, '\u00A0');
+
     // Render segment text with colors
     // Padding is minimal since parts.join(' ') handles spacing between units
     let styledText: string;
     if (isTextMode) {
       // Text mode: only foreground color, no background
-      styledText = chalk.hex(segment.colors.fg)(segment.text);
+      styledText = chalk.hex(segment.colors.fg)(nbspText);
     } else {
       // Background mode: both foreground and background colors (keep padding for visual)
+      // Use non-breaking spaces for padding too
       styledText = chalk
         .hex(segment.colors.fg)
-        .bgHex(segment.colors.bg)(` ${segment.text} `);
+        .bgHex(segment.colors.bg)(`\u00A0${nbspText}\u00A0`);
     }
 
     parts.push(styledText);
