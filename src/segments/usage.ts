@@ -1,12 +1,13 @@
 /**
  * Usage segment - displays daily cost and token usage
- * Uses ccusage library for real-time cost calculation from JSONL transcripts
+ * Combines Claude Code (ccusage) and Codex CLI (@ccusage/codex) usage
  */
 
 import type { ClaudeCodeInput, UsageSegmentConfig } from '../config';
 import type { DatabaseClient } from '../database';
 import { Segment, type SegmentData } from './base';
 import { loadDailyUsageData } from 'ccusage/data-loader';
+import { execSync } from 'child_process';
 
 /**
  * Format token count with K/M suffix
@@ -39,6 +40,55 @@ function getSystemTimezone(): string {
     return Intl.DateTimeFormat().resolvedOptions().timeZone;
   } catch {
     return 'UTC';
+  }
+}
+
+interface CodexDailyData {
+  daily: Array<{
+    date: string;
+    costUSD: number;
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+  }>;
+  totals: {
+    costUSD: number;
+    inputTokens: number;
+    outputTokens: number;
+  };
+}
+
+/**
+ * Fetch today's Codex usage via @ccusage/codex CLI
+ */
+async function loadCodexTodayData(timezone: string): Promise<{
+  cost: number;
+  inputTokens: number;
+  outputTokens: number;
+}> {
+  try {
+    const today = getTodayDate();
+    // Run ccusage-codex with JSON output, filtering to today only
+    const result = execSync(
+      `bunx @ccusage/codex@latest daily --json --since ${today} --timezone "${timezone}"`,
+      {
+        encoding: 'utf-8',
+        stdio: ['pipe', 'pipe', 'pipe'],
+        timeout: 30000,
+      }
+    );
+
+    const data: CodexDailyData = JSON.parse(result);
+
+    // Return totals (which will be just today's data due to --since filter)
+    return {
+      cost: data.totals?.costUSD || 0,
+      inputTokens: data.totals?.inputTokens || 0,
+      outputTokens: data.totals?.outputTokens || 0,
+    };
+  } catch {
+    // Silently fail if Codex CLI not available or errors
+    return { cost: 0, inputTokens: 0, outputTokens: 0 };
   }
 }
 
@@ -148,13 +198,26 @@ export class UsageSegment extends Segment {
 
   /**
    * Update cached data (call this before render)
+   * Fetches both Claude Code and Codex usage in parallel
    */
   async updateCache(): Promise<void> {
-    const data = await this.loadTodayData();
+    const timezone = getSystemTimezone();
+
+    // Fetch Claude Code and Codex usage in parallel
+    const [claudeData, codexData] = await Promise.all([
+      this.loadTodayData(),
+      loadCodexTodayData(timezone),
+    ]);
+
+    // Combine costs and tokens
     this.cachedData = {
       date: getTodayDate(),
-      cost: data.cost,
-      tokens: data.inputTokens + data.outputTokens,
+      cost: claudeData.cost + codexData.cost,
+      tokens:
+        claudeData.inputTokens +
+        claudeData.outputTokens +
+        codexData.inputTokens +
+        codexData.outputTokens,
     };
   }
 }
