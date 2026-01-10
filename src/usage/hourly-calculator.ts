@@ -180,6 +180,11 @@ function calculateEntryCost(entry: any): number {
 /**
  * Calculate usage for the last hour by reading JSONL transcripts
  * Uses EWMA (Exponential Weighted Moving Average) for pace calculation
+ *
+ * TODO: Consider adding Codex CLI usage to pace calculation.
+ * Currently only tracks Claude Code usage. Codex is ~4% of total cost,
+ * so impact is small, but may be worth adding for completeness.
+ * See: bunx @ccusage/codex@latest daily --json
  */
 export async function calculatePace(options: PaceOptions = {}): Promise<HourlyUsage> {
   const { halfLifeMinutes = 7 } = options;
