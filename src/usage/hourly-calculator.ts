@@ -3,7 +3,7 @@
  * Reads JSONL transcript files to calculate usage for the last hour
  */
 
-import { readdirSync, readFileSync, statSync } from 'fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
 
@@ -199,6 +199,20 @@ export async function calculatePace(options: PaceOptions = {}): Promise<HourlyUs
 
   // Find all JSONL files modified within the lookback window
   const recentFiles: string[] = [];
+
+  // Handle fresh installs where ~/.claude/projects doesn't exist yet
+  if (!existsSync(projectsDir)) {
+    return {
+      cost: 0,
+      pace: 0,
+      inputTokens: 0,
+      outputTokens: 0,
+      cacheTokens: 0,
+      apiCalls: 0,
+      activeMinutes: 0,
+    };
+  }
+
   const dirEntries = readdirSync(projectsDir, { withFileTypes: true });
 
   for (const dirEntry of dirEntries) {

@@ -401,10 +401,12 @@ export class ThoughtsSegment extends Segment {
       thought = this.getDevThought();
     }
 
-    // Save state to avoid repeating this thought
-    this.state.lastThought = thought;
-    this.state.lastUpdate = Date.now();
-    this.saveState();
+    // Only save state if thought changed (avoid unnecessary disk writes)
+    if (thought !== this.state.lastThought) {
+      this.state.lastThought = thought;
+      this.state.lastUpdate = Date.now();
+      this.saveState();
+    }
 
     const parts: string[] = [];
 

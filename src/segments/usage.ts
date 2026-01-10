@@ -7,7 +7,22 @@ import type { ClaudeCodeInput, UsageSegmentConfig } from '../config';
 import type { DatabaseClient } from '../database';
 import { Segment, type SegmentData } from './base';
 import { loadDailyUsageData } from 'ccusage/data-loader';
-import { execSync } from 'child_process';
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { join } from 'path';
+import { homedir } from 'os';
+
+// Cache Codex data for 5 minutes to avoid slow CLI calls
+const CODEX_CACHE_TTL_MS = 5 * 60 * 1000;
+const CACHE_DIR = join(homedir(), '.cache', 'cc-hud');
+const CODEX_CACHE_FILE = join(CACHE_DIR, 'codex-usage.json');
+
+interface CodexCacheData {
+  date: string;
+  cost: number;
+  inputTokens: number;
+  outputTokens: number;
+  timestamp: number;
+}
 
 /**
  * Format token count with K/M suffix
@@ -59,33 +74,106 @@ interface CodexDailyData {
 }
 
 /**
- * Fetch today's Codex usage via @ccusage/codex CLI
+ * Load cached Codex data if valid
+ */
+function loadCodexCache(today: string): CodexCacheData | null {
+  try {
+    if (!existsSync(CODEX_CACHE_FILE)) return null;
+
+    const cached: CodexCacheData = JSON.parse(
+      readFileSync(CODEX_CACHE_FILE, 'utf-8')
+    );
+
+    // Check if cache is valid (same date and not expired)
+    const now = Date.now();
+    if (cached.date === today && now - cached.timestamp < CODEX_CACHE_TTL_MS) {
+      return cached;
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Save Codex data to cache
+ */
+function saveCodexCache(data: CodexCacheData): void {
+  try {
+    if (!existsSync(CACHE_DIR)) {
+      mkdirSync(CACHE_DIR, { recursive: true });
+    }
+    writeFileSync(CODEX_CACHE_FILE, JSON.stringify(data));
+  } catch {
+    // Ignore cache write errors
+  }
+}
+
+/**
+ * Fetch today's Codex usage via @ccusage/codex CLI (with caching)
  */
 async function loadCodexTodayData(timezone: string): Promise<{
   cost: number;
   inputTokens: number;
   outputTokens: number;
 }> {
+  const today = getTodayDate();
+
+  // Check cache first
+  const cached = loadCodexCache(today);
+  if (cached) {
+    return {
+      cost: cached.cost,
+      inputTokens: cached.inputTokens,
+      outputTokens: cached.outputTokens,
+    };
+  }
+
   try {
-    const today = getTodayDate();
     // Run ccusage-codex with JSON output, filtering to today only
-    const result = execSync(
-      `bunx @ccusage/codex@latest daily --json --since ${today} --timezone "${timezone}"`,
-      {
-        encoding: 'utf-8',
-        stdio: ['pipe', 'pipe', 'pipe'],
-        timeout: 30000,
-      }
+    // Use Bun.spawn for async execution with shorter timeout
+    const proc = Bun.spawn(
+      ['bunx', '@ccusage/codex@latest', 'daily', '--json', '--since', today, '--timezone', timezone],
+      { stdout: 'pipe', stderr: 'pipe' }
     );
 
-    const data: CodexDailyData = JSON.parse(result);
+    // Set a 5 second timeout (much shorter than original 30s)
+    const timeoutPromise = new Promise<null>((resolve) =>
+      setTimeout(() => {
+        proc.kill();
+        resolve(null);
+      }, 5000)
+    );
 
-    // Return totals (which will be just today's data due to --since filter)
-    return {
+    const resultPromise = (async () => {
+      const output = await new Response(proc.stdout).text();
+      const exitCode = await proc.exited;
+      if (exitCode !== 0) return null;
+      return output;
+    })();
+
+    const output = await Promise.race([resultPromise, timeoutPromise]);
+    if (!output) {
+      return { cost: 0, inputTokens: 0, outputTokens: 0 };
+    }
+
+    const data: CodexDailyData = JSON.parse(output);
+
+    const result = {
       cost: data.totals?.costUSD || 0,
       inputTokens: data.totals?.inputTokens || 0,
       outputTokens: data.totals?.outputTokens || 0,
     };
+
+    // Cache the result
+    saveCodexCache({
+      date: today,
+      ...result,
+      timestamp: Date.now(),
+    });
+
+    return result;
   } catch {
     // Silently fail if Codex CLI not available or errors
     return { cost: 0, inputTokens: 0, outputTokens: 0 };
