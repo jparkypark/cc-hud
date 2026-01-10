@@ -1,6 +1,6 @@
 # cc-hud
 
-A customizable heads-up display for Claude Code with live daily totals, flexible segment ordering, and powerline styling.
+A customizable heads-up display for Claude Code with live usage tracking, EWMA pace calculation, and powerline styling.
 
 ## Why cc-hud?
 
@@ -10,12 +10,13 @@ Existing Claude Code statusline packages don't offer enough customization:
 - Limited or no access to live daily cost tracking
 
 cc-hud fixes this by giving you:
-- ✅ **Granular display control** - Show/hide any piece of info per segment
-- ✅ **Flexible segment ordering** - Arrange segments however you want
-- ✅ **Live daily totals** - Accurate cost tracking using ccusage library
-- ✅ **Full color customization** - Control foreground, background, and separator colors
-- ✅ **Multiple powerline styles** - Choose from 6 separator styles with automatic color compensation
-- ✅ **Flexible path display** - Show directory name, full path, or project-relative path
+- **Granular display control** - Show/hide any piece of info per segment
+- **Flexible segment ordering** - Arrange segments however you want
+- **Live daily totals** - Accurate cost tracking (Claude Code + Codex CLI)
+- **EWMA pace calculation** - Smoothed hourly burn rate with configurable half-life
+- **Full color customization** - Foreground, background, or text-only color modes
+- **Multiple powerline styles** - 6 separator styles with automatic color compensation
+- **7 segment types** - Usage, pace, directory, git, PR, time, and thoughts
 
 ## Installation
 
@@ -43,141 +44,153 @@ bunx cc-hud
 }
 ```
 
-2. Create your config file:
-
-```json
-// ~/.claude/cc-hud.json
-{
-  "segments": [
-    {
-      "type": "usage",
-      "display": {
-        "icon": true,
-        "cost": true,
-        "tokens": false,
-        "period": "today"
-      },
-      "colors": {
-        "fg": "#88c0d0",
-        "bg": "#2e3440"
-      }
-    },
-    {
-      "type": "directory",
-      "display": {
-        "icon": true,
-        "pathMode": "project"
-      },
-      "colors": {
-        "fg": "#d8dee9",
-        "bg": "#2e3440"
-      }
-    },
-    {
-      "type": "git",
-      "display": {
-        "branch": true,
-        "status": true,
-        "ahead": true,
-        "behind": true
-      },
-      "colors": {
-        "fg": "#8fbcbb",
-        "bg": "#2e3440"
-      }
-    }
-  ],
-  "theme": {
-    "powerline": true,
-    "separatorStyle": "angled"
-  }
-}
-```
+2. cc-hud works out of the box with sensible defaults. Optionally create `~/.claude/cc-hud.json` to customize.
 
 3. Restart Claude Code to see your new statusline!
 
 ## Configuration
 
-The config file location is `~/.claude/cc-hud.json`.
+Config file: `~/.claude/cc-hud.json`
 
-Structure:
-- `segments` - Array of segment objects in display order (left to right)
-- `theme.powerline` - Enable powerline separators (default: true)
-- `theme.separatorStyle` - Choose from 6 separator styles (default: "angled")
-
-Each segment requires:
-- `type` - Segment type (usage, directory, git)
-- `display` - Object controlling what info to show (varies by segment type)
-- `colors.fg` - Foreground color (hex format)
-- `colors.bg` - Background color (hex format)
-
-### Color Themes
-
-Popular themes that work well:
-
-**Tokyo Night** (used in development):
 ```json
 {
   "segments": [
-    { "type": "usage", "colors": { "fg": "#1a1b26", "bg": "#f7768e" } },
-    { "type": "directory", "colors": { "fg": "#1a1b26", "bg": "#9ece6a" } },
-    { "type": "git", "colors": { "fg": "#1a1b26", "bg": "#7aa2f7" } }
-  ]
+    {
+      "type": "directory",
+      "display": { "icon": true, "pathMode": "parent" },
+      "colors": { "fg": "#ff6666", "bg": "#ec4899" }
+    },
+    {
+      "type": "git",
+      "display": { "icon": true, "branch": true, "status": true },
+      "colors": { "fg": "#ffbd55", "bg": "#f97316" }
+    },
+    {
+      "type": "pr",
+      "display": { "icon": true, "number": true },
+      "colors": { "fg": "#ffff66", "bg": "#10b981" }
+    },
+    {
+      "type": "usage",
+      "display": { "icon": true, "cost": true, "tokens": false, "period": "today" },
+      "colors": { "fg": "#9de24f", "bg": "#3b82f6" }
+    },
+    {
+      "type": "pace",
+      "display": { "icon": true, "period": "hourly", "halfLifeMinutes": 7 },
+      "colors": { "fg": "#87cefa", "bg": "#9333ea" }
+    },
+    {
+      "type": "time",
+      "display": { "icon": true, "format": "12h", "seconds": false },
+      "colors": { "fg": "#c084fc", "bg": "#9333ea" }
+    },
+    {
+      "type": "thoughts",
+      "display": { "icon": true, "quotes": false },
+      "colors": { "fg": "#9ca3af", "bg": "#6b7280" },
+      "useApiQuotes": true
+    }
+  ],
+  "theme": {
+    "powerline": true,
+    "separatorStyle": "angled",
+    "colorMode": "text"
+  }
 }
 ```
 
-**Gruvbox**:
-```json
-{
-  "segments": [
-    { "type": "usage", "colors": { "fg": "#282828", "bg": "#fb4934" } },
-    { "type": "directory", "colors": { "fg": "#282828", "bg": "#b8bb26" } },
-    { "type": "git", "colors": { "fg": "#282828", "bg": "#83a598" } }
-  ]
-}
-```
+### Theme Options
+
+- `powerline` - Enable powerline separators (default: true)
+- `separatorStyle` - Separator style: `angled`, `thin`, `rounded`, `flame`, `slant`, `backslant`
+- `colorMode` - Color mode:
+  - `"background"` - Colored backgrounds with powerline separators
+  - `"text"` - Colored text only, pipe separators (cleaner look)
 
 ## Available Segments
 
 ### Usage
-Daily cost and token usage calculated from Claude transcripts using the [ccusage](https://github.com/jparkerweb/ccusage) library.
+Daily cost combining Claude Code and Codex CLI usage via [ccusage](https://github.com/jparkerweb/ccusage).
 
-Display options:
-- `icon` - Show ☉ (alchemical symbol for gold)
-- `cost` - Show daily cost in dollars
-- `tokens` - Show total token count (formatted with K/M suffix)
-- `period` - Label to show (e.g., "today")
+| Option | Description |
+|--------|-------------|
+| `icon` | Show Σ symbol |
+| `cost` | Show daily cost in dollars |
+| `tokens` | Show total token count (K/M suffix) |
+| `period` | Label to show (e.g., "today") |
+
+### Pace
+EWMA-smoothed hourly burn rate. Recent costs are weighted more heavily, and pace naturally decays when idle.
+
+| Option | Description |
+|--------|-------------|
+| `icon` | Show △ symbol |
+| `period` | Label (currently only "hourly") |
+| `halfLifeMinutes` | EWMA half-life (default: 7, giving ~10 min effective window) |
+
+**How half-life works:**
+- Cost from 1 half-life ago: 50% weight
+- Cost from 2 half-lives ago: 25% weight
+- Cost from 3 half-lives ago: 12.5% weight
 
 ### Directory
-Current working directory with flexible path display modes.
+Current working directory with flexible path display.
 
-Display options:
-- `icon` - Show › symbol
-- `pathMode` - How to display the path:
-  - `"name"` - Just the directory name (default)
-  - `"full"` - Full path with ~ for home directory
-  - `"project"` - Path from project root (e.g., `cc-hud/src`)
+| Option | Description |
+|--------|-------------|
+| `icon` | Show › symbol |
+| `pathMode` | `"name"`, `"full"`, `"project"`, or `"parent"` |
+| `rootWarning` | Show warning when not in git project root |
 
 ### Git
-Git repository information.
+Git repository status.
 
-Display options:
-- `icon` - Show ⎇ symbol
-- `branch` - Show current branch name
-- `status` - Show clean (✓) or dirty (✗) indicator
-- `ahead` - Show commits ahead with ↑ symbol
-- `behind` - Show commits behind with ↓ symbol
+| Option | Description |
+|--------|-------------|
+| `icon` | Show ⎇ symbol |
+| `branch` | Show current branch name |
+| `status` | Show ✓ (clean) or ✗ (dirty) |
+| `ahead` | Show commits ahead (↑N) |
+| `behind` | Show commits behind (↓N) |
+
+### PR
+GitHub pull request for current branch (uses `gh` CLI).
+
+| Option | Description |
+|--------|-------------|
+| `icon` | Show ↑↰ symbol |
+| `number` | Show PR number |
+
+### Time
+Current time display.
+
+| Option | Description |
+|--------|-------------|
+| `icon` | Show ◔ symbol |
+| `format` | `"12h"` or `"24h"` |
+| `seconds` | Show seconds |
+
+### Thoughts
+Random thoughts or inspirational quotes.
+
+| Option | Description |
+|--------|-------------|
+| `icon` | Show ◇ symbol |
+| `quotes` | Wrap text in quote marks |
+| `customThoughts` | Array of custom thought strings |
+| `useApiQuotes` | Fetch quotes from zenquotes.io API |
 
 ## Separator Styles
 
-Six powerline separator styles are available. All separators automatically apply 10% color darkening to compensate for font rendering making thin glyphs appear lighter.
+Six powerline separator styles with automatic 10% color darkening to compensate for font rendering:
 
 - `angled` - Classic powerline chevrons (default)
 - `thin` - Subtle outlined separators
 - `rounded` - Smooth rounded transitions
 - `flame` - Decorative flame-style separators
-- `slant` - Forward-slanting diagonal separators
-- `backslant` - Backward-slanting diagonal separators
+- `slant` - Forward-slanting diagonal
+- `backslant` - Backward-slanting diagonal
 
 ## Documentation
 
@@ -188,8 +201,9 @@ Six powerline separator styles are available. All separators automatically apply
 
 - Bun 1.0+ (already installed if you use Claude Code)
 - Claude Code
-- Terminal with Unicode support (most modern terminals)
+- Terminal with Unicode support
 - Font with powerline glyphs (Comic Code Ligatures, any Nerd Font, or many monospace fonts)
+- Optional: `gh` CLI for PR segment
 
 ## License
 

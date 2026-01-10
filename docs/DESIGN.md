@@ -1,6 +1,6 @@
 # Design Decisions
 
-This document captures the key design decisions made during the planning phase of cc-hud.
+This document captures the key design decisions made during development of cc-hud.
 
 ## Overview
 
@@ -20,10 +20,59 @@ cc-hud was created because existing Claude Code statusline packages lacked suffi
 ### Our Goals
 
 1. ✅ Control segment order
-2. ✅ Calculate live daily totals from Claude's database
+2. ✅ Calculate live daily totals from Claude transcripts
 3. ✅ Granular display control (show/hide any piece of info per segment)
 4. ✅ Full color customization
 5. ✅ Powerline styling with multiple separator options
+6. ✅ EWMA-based pace calculation for burn rate tracking
+7. ✅ Combined Claude Code + Codex usage tracking
+
+## Current Implementation
+
+### Segments (7 types)
+
+| Segment | Purpose | Key Features |
+|---------|---------|--------------|
+| `usage` | Daily cost tracking | Combines Claude Code + Codex CLI usage |
+| `pace` | Hourly burn rate | EWMA smoothing with configurable half-life |
+| `directory` | Current path | Multiple display modes (name, full, project, parent) |
+| `git` | Repository status | Branch, dirty status, ahead/behind counts |
+| `pr` | GitHub PR info | PR number for current branch via `gh` CLI |
+| `time` | Current time | 12h/24h format, optional seconds |
+| `thoughts` | Random quotes | Custom pool or zenquotes.io API |
+
+### Theme System
+
+**Color Modes:**
+- `background` - Classic powerline with colored backgrounds
+- `text` - Colored text only with pipe separators (cleaner look)
+
+**Separator Styles:**
+- `angled` - Classic powerline chevrons (default)
+- `thin` - Subtle outlined separators
+- `rounded` - Smooth rounded transitions
+- `flame` - Decorative flame-style separators
+- `slant` - Forward-slanting diagonal
+- `backslant` - Backward-slanting diagonal
+
+### Pace Calculation (EWMA)
+
+The pace segment uses Exponential Weighted Moving Average for accurate burn rate:
+
+- Recent costs weighted more heavily than older costs
+- Configurable half-life (default: 7 minutes, ~10 min effective window)
+- Pace naturally decays when idle
+- Based on industry-standard algorithms (same approach as CPU load averages)
+
+**Formula:**
+```
+weight = 2^(-age / halfLife)
+pace = Σ(cost × weight) / effectiveWindow
+```
+
+Where `effectiveWindow = halfLife / ln(2) ≈ 1.44 × halfLife`
+
+---
 
 ## Finalized Design Decisions
 
@@ -37,193 +86,108 @@ cc-hud was created because existing Claude Code statusline packages lacked suffi
 - Users already know where `~/.claude/` is
 - Simpler than creating a separate `~/.cc-hud/` directory
 
-**Alternative considered:** `~/.cc-hud/config.json` (dedicated directory)
-- Would follow XDG/unix conventions
-- Room for future expansion (themes/, plugins/)
-- Rejected in favor of simplicity and consistency with existing tools
-
 ---
 
 ### 2. Default Segments
 
-**Decision:** Three segments in order: usage, directory, git
-
-**Configuration:**
-```json
-{
-  "segments": [
-    {
-      "type": "usage",
-      "display": {
-        "cost": true,
-        "tokens": false,
-        "period": "today"
-      }
-    },
-    {
-      "type": "directory",
-      "display": {
-        "icon": true,
-        "fullPath": false
-      }
-    },
-    {
-      "type": "git",
-      "display": {
-        "branch": true,
-        "status": true,
-        "ahead": true,
-        "behind": true
-      }
-    }
-  ]
-}
-```
+**Decision:** Seven segments in order: directory, git, pr, usage, pace, time, thoughts
 
 **Rationale:**
-- Most useful info at a glance
-- Matches current user setup with claude-statusline-powerline
-- Same order as claude-statusline-powerline (familiar to users)
-- Usage is most important (cost tracking motivation for the project)
+- Context first (where am I, what branch, what PR)
+- Then metrics (cost, pace)
+- Then ambient info (time, thoughts)
 
 ---
 
-### 3. Time Periods for Usage Segment
+### 3. Usage Data Sources
 
-**Decision:** Support "today" only in MVP
+**Decision:** Combine ccusage library + Codex CLI
 
-**Phase 1 (MVP):**
-- `"today"` - Query `daily_summaries` table for current date
-
-**Phase 2 (future):**
-- `"7d"` - Sum last 7 days from daily_summaries
-- `"30d"` - Sum last 30 days
-- `"month"` - Current calendar month
-- `"all"` - Total lifetime usage
+**Implementation:**
+- Claude Code usage via `ccusage` library (loadDailyUsageData)
+- Codex CLI usage via `bunx @ccusage/codex@latest daily --json`
+- Both fetched in parallel for performance
+- Graceful degradation if Codex CLI unavailable
 
 **Rationale:**
-- "today" solves the immediate need
-- Keep MVP scope manageable
-- Database already has the data structure (daily_summaries table)
-- Easy to add more periods later without breaking changes
+- ccusage is authoritative for Claude Code transcripts
+- Codex CLI provides OpenAI Codex usage data
+- Combined total shows true AI spend across tools
 
 ---
 
-### 4. Display Control: Format Strings vs Boolean Toggles
+### 4. Pace Calculation Algorithm
 
-**Decision:** Boolean toggles for MVP
+**Decision:** EWMA with configurable half-life
 
-**Phase 1 approach:**
+**Why EWMA over simple averaging:**
+- Simple `cost / time` gives misleading results (old bursts never fade)
+- Rolling window has arbitrary cutoff (sudden drops)
+- EWMA smoothly decays old data while weighting recent activity
+
+**Default half-life:** 7 minutes (~10 minute effective window)
+- Responsive enough to reflect current activity
+- Stable enough to smooth brief pauses
+
+---
+
+### 5. Display Control: Boolean Toggles
+
+**Decision:** Boolean toggles for each display option
+
+**Example:**
 ```json
 {
   "type": "usage",
   "display": {
-    "cost": true,      // Show: "$1.23"
-    "tokens": false,   // Hide token counts
-    "period": "today"  // Label: "today"
-  }
-}
-```
-Output: `$1.23 today`
-
-**Phase 2 approach (future):**
-```json
-{
-  "type": "usage",
-  "format": "${cost} over ${period}",
-  "display": { "period": "today" }
-}
-```
-Output: `$1.23 over today`
-
-**Rationale:**
-- Boolean toggles are simpler to implement and validate
-- Covers 90% of use cases
-- Format strings require parsing/templating engine (added complexity)
-- Can add format strings later without breaking changes
-
----
-
-### 5. Separator Styles
-
-**Decision:** All styles available from day 1
-
-**Supported styles:**
-```typescript
-const SEPARATORS = {
-  angled: {
-    right: '\uE0B0',  //
-    left: '\uE0B2'    //
-  },
-  thin: {
-    right: '\uE0B1',  //
-    left: '\uE0B3'    //
-  },
-  rounded: {
-    right: '\uE0B4',  //
-    left: '\uE0B6'    //
-  },
-  flame: {
-    right: '\uE0C0',  //
-    left: '\uE0C2'    //
-  }
-};
-```
-
-**Configuration:**
-```json
-{
-  "theme": {
-    "powerline": true,
-    "separatorStyle": "angled"  // "angled" | "thin" | "rounded" | "flame"
+    "icon": true,
+    "cost": true,
+    "tokens": false,
+    "period": "today"
   }
 }
 ```
 
 **Rationale:**
-- All separators use standard Nerd Font powerline characters
-- Implementation complexity is minimal (just character mapping)
-- Provides visual variety for users who want it
-- Angled is default (classic powerline look)
+- Simple to understand and configure
+- Covers most use cases
+- Easy to validate
+- Format strings considered but deferred (added complexity)
 
 ---
 
-### 6. Technology Stack
+### 6. Separator Rendering
+
+**Decision:** Separate units with space-joined output for word-wrap friendliness
+
+**Implementation:**
+- Each segment and separator is its own "word"
+- `parts.join(' ')` creates natural word-break points
+- Terminal can wrap at segment boundaries, not mid-segment
+
+**Rationale:**
+- Prevents awkward wrapping in narrow terminals
+- Each segment stays intact when wrapping occurs
+
+---
+
+### 7. Technology Stack
 
 **Decision:** TypeScript with Bun
 
 **Stack:**
 - Language: TypeScript (native support, no build step)
 - Runtime: Bun 1.0+
-- Database: bun:sqlite (native built-in SQLite)
+- Usage data: ccusage library + Codex CLI
 - ANSI colors: chalk
 - Config format: JSON
 
 **Rationale:**
 - **Performance matters for statuslines** - Runs on every prompt
   - Bun startup: 3-5ms vs Node's 50-100ms
-  - Near-instant statusline rendering
 - **No build step needed** - Bun runs TypeScript directly
-  - Simpler development workflow
-  - No tsc compilation, no dist/ folder
-  - Direct `src/index.ts` execution
 - **Users already have Bun** - Claude Code uses Bun
-  - No extra installation burden
-  - Aligned with Claude Code ecosystem
-- **Native SQLite** - `bun:sqlite` is built-in
-  - No native dependencies or compilation
-  - Faster than better-sqlite3
-  - No cross-platform issues
-- **TypeScript is still the standard** - Type safety and IDE support
-  - Matches other Claude Code statusline packages
-  - Great autocomplete and refactoring
-
-**Alternatives considered:**
-- **Node.js** - More conservative but slower startup (50-100ms)
-- **JavaScript** - Simpler but lacks type safety
-- **Go/Rust** - Similar performance but slower development, fewer contributors
-
-**Key advantage:** Bun combines the performance of Go/Rust with the developer experience of TypeScript/Node.
+- **ccusage library** - Proven solution for Claude transcript parsing
 
 ---
 
@@ -235,96 +199,75 @@ const SEPARATORS = {
 {
   "segments": [
     {
-      "type": "usage",
-      "display": {
-        "cost": true,
-        "tokens": false,
-        "period": "today"
-      },
-      "colors": {
-        "fg": "#88c0d0",
-        "bg": "#2e3440"
-      }
-    },
-    {
       "type": "directory",
       "display": {
         "icon": true,
-        "fullPath": false
+        "pathMode": "parent",
+        "rootWarning": false
       },
-      "colors": {
-        "fg": "#d8dee9",
-        "bg": "#2e3440"
-      }
+      "colors": { "fg": "#ff6666", "bg": "#ec4899" }
     },
     {
       "type": "git",
       "display": {
+        "icon": true,
         "branch": true,
         "status": true,
         "ahead": true,
         "behind": true
       },
-      "colors": {
-        "fg": "#8fbcbb",
-        "bg": "#2e3440"
-      }
+      "colors": { "fg": "#ffbd55", "bg": "#f97316" }
+    },
+    {
+      "type": "pr",
+      "display": {
+        "icon": true,
+        "number": true
+      },
+      "colors": { "fg": "#ffff66", "bg": "#10b981" }
+    },
+    {
+      "type": "usage",
+      "display": {
+        "icon": true,
+        "cost": true,
+        "tokens": false,
+        "period": "today"
+      },
+      "colors": { "fg": "#9de24f", "bg": "#3b82f6" }
+    },
+    {
+      "type": "pace",
+      "display": {
+        "icon": true,
+        "period": "hourly",
+        "halfLifeMinutes": 7
+      },
+      "colors": { "fg": "#87cefa", "bg": "#9333ea" }
+    },
+    {
+      "type": "time",
+      "display": {
+        "icon": true,
+        "format": "12h",
+        "seconds": false
+      },
+      "colors": { "fg": "#c084fc", "bg": "#9333ea" }
+    },
+    {
+      "type": "thoughts",
+      "display": {
+        "icon": true,
+        "quotes": false
+      },
+      "colors": { "fg": "#9ca3af", "bg": "#6b7280" },
+      "useApiQuotes": true
     }
   ],
   "theme": {
     "powerline": true,
     "separatorStyle": "angled",
-    "separatorColor": "#2e3440"
-  }
-}
-```
-
-### Segment Types
-
-#### Usage Segment
-```json
-{
-  "type": "usage",
-  "display": {
-    "cost": boolean,      // Show/hide dollar amount
-    "tokens": boolean,    // Show/hide token counts
-    "period": "today"     // Currently only "today" supported
-  },
-  "colors": {
-    "fg": "#hex",
-    "bg": "#hex"
-  }
-}
-```
-
-#### Directory Segment
-```json
-{
-  "type": "directory",
-  "display": {
-    "icon": boolean,      // Show/hide folder icon
-    "fullPath": boolean   // Show full path or just directory name
-  },
-  "colors": {
-    "fg": "#hex",
-    "bg": "#hex"
-  }
-}
-```
-
-#### Git Segment
-```json
-{
-  "type": "git",
-  "display": {
-    "branch": boolean,    // Show/hide branch name
-    "status": boolean,    // Show/hide dirty indicator
-    "ahead": boolean,     // Show/hide ahead count
-    "behind": boolean     // Show/hide behind count
-  },
-  "colors": {
-    "fg": "#hex",
-    "bg": "#hex"
+    "colorMode": "text"
   }
 }
 ```
@@ -333,77 +276,27 @@ const SEPARATORS = {
 
 ## Future Enhancements
 
-### Phase 2 Features (not in MVP)
-1. Multiple time periods for usage segment (7d, 30d, month, all)
+### Potential Features
+1. Multiple time periods for usage segment (7d, 30d, month)
 2. Format strings for custom templates
-3. Additional separator styles beyond the 4 we're starting with
-4. Custom segment plugins
-5. Theme presets (nord, dracula, gruvbox, etc.)
+3. Custom segment plugins
+4. Theme presets (nord, dracula, gruvbox, etc.)
+5. Codex CLI integration for pace calculation (currently ~4% of cost, low priority)
 6. Token usage breakdown by model
 7. Rate limit indicators
 
 ### Philosophy
-Ship a focused MVP that solves the core problem (customizable statusline with live daily totals), then iterate based on real usage.
-
----
-
-## Research Findings
-
-### Claude Code Statusline API
-
-- **Input:** Receives JSON via stdin with session data
-- **Output:** Single line of ANSI-colored text to stdout
-- **Configuration:** Set in `~/.claude/settings.json`:
-```json
-{
-  "statusLine": {
-    "type": "command",
-    "command": "npx cc-hud"
-  }
-}
-```
-
-### Claude's Database Structure
-
-**Location:** `~/.claude/statusline-usage.db`
-
-**Key table:** `daily_summaries` (pre-calculated daily totals)
-```sql
-CREATE TABLE daily_summaries (
-    date TEXT PRIMARY KEY,
-    total_sessions INTEGER DEFAULT 0,
-    total_input_tokens INTEGER DEFAULT 0,
-    total_output_tokens INTEGER DEFAULT 0,
-    total_cache_tokens INTEGER DEFAULT 0,
-    total_cost REAL DEFAULT 0.0,
-    models_used TEXT DEFAULT '[]',
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-```
-
-**Key insight:** Claude maintains daily summaries automatically, so we don't need to aggregate from individual sessions for "today" totals. Just query the current date row.
-
-### Powerline Technical Details
-
-**Key insight:** Separator color must match the NEXT segment's background color to create the seamless "flowing" effect.
-
-Example:
-```
-[Segment 1 with bg=#2e3440]<separator color=#3b4252>[Segment 2 with bg=#3b4252]
-```
-
-The separator's foreground color should be Segment 1's background, and it's painted on Segment 2's background.
+Ship focused features that solve real problems, then iterate based on usage. EWMA pace calculation is an example of solving a real pain point (misleading simple averages) with a proven algorithm.
 
 ---
 
 ## Summary
 
-This design provides:
+cc-hud provides:
 1. ✅ Maximum flexibility (segment ordering, granular display control)
-2. ✅ Live daily cost tracking (the primary motivation)
-3. ✅ Full color customization (not just themes)
-4. ✅ Multiple powerline styles (visual variety)
-5. ✅ Familiar patterns (follows existing statusline conventions)
-6. ✅ Room to grow (architecture supports future enhancements)
-
-The MVP scope is deliberately focused to ship something useful quickly while maintaining a clean architecture for future expansion.
+2. ✅ Accurate cost tracking (ccusage + Codex CLI)
+3. ✅ Intelligent pace calculation (EWMA smoothing)
+4. ✅ Full color customization (background or text-only modes)
+5. ✅ Multiple powerline styles (6 separator options)
+6. ✅ Word-wrap friendly output
+7. ✅ Room to grow (modular architecture)

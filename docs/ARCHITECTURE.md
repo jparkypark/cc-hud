@@ -7,60 +7,60 @@ This document describes the technical implementation of cc-hud.
 cc-hud is a command-line tool that:
 1. Receives JSON input from Claude Code via stdin
 2. Reads configuration from `~/.claude/cc-hud.json`
-3. Queries Claude's SQLite database for usage data
-4. Renders segments with powerline styling
-5. Outputs a single line of ANSI-colored text to stdout
+3. Fetches usage data from ccusage library and Codex CLI
+4. Calculates EWMA-smoothed pace from transcript files
+5. Renders segments with powerline or text-mode styling
+6. Outputs a single line of ANSI-colored text to stdout
 
 ## System Architecture
 
 ```
-┌─────────────────────────────────────────────────────┐
-│ Claude Code                                         │
-│ ┌─────────────────────────────────────────────────┐ │
-│ │ Sends JSON via stdin                            │ │
-│ │ {                                               │ │
-│ │   "cwd": "/path/to/project",                    │ │
-│ │   "git": { ... },                               │ │
-│ │   "session": { ... }                            │ │
-│ │ }                                               │ │
-│ └─────────────────────────────────────────────────┘ │
-└───────────────────────┬─────────────────────────────┘
-                        │
-                        ▼
-┌─────────────────────────────────────────────────────┐
-│ cc-hud (src/index.ts)                               │
-│                                                     │
-│ ┌─────────────────┐  ┌─────────────────┐          │
-│ │ Config Parser   │  │ Database Client │          │
-│ │ (config/)       │  │ (database/)     │          │
-│ │                 │  │                 │          │
-│ │ ~/.claude/      │  │ ~/.claude/      │          │
-│ │ cc-hud.json     │  │ statusline-     │          │
-│ │                 │  │ usage.db        │          │
-│ └─────────────────┘  └─────────────────┘          │
-│          │                    │                     │
-│          └────────┬───────────┘                     │
-│                   ▼                                 │
-│         ┌──────────────────┐                        │
-│         │ Segment System   │                        │
-│         │ (segments/)      │                        │
-│         │                  │                        │
-│         │ - UsageSegment   │                        │
-│         │ - DirSegment     │                        │
-│         │ - GitSegment     │                        │
-│         └──────────────────┘                        │
-│                   │                                 │
-│                   ▼                                 │
-│         ┌──────────────────┐                        │
-│         │ Powerline        │                        │
-│         │ Renderer         │                        │
-│         │ (renderer/)      │                        │
-│         └──────────────────┘                        │
-│                   │                                 │
-└───────────────────┼─────────────────────────────────┘
-                    ▼
-        ANSI-colored string to stdout
-        " $1.23 today  ~/repos/cc-hud  main "
+┌─────────────────────────────────────────────────────────────┐
+│ Claude Code                                                 │
+│ ┌─────────────────────────────────────────────────────────┐ │
+│ │ Sends JSON via stdin                                    │ │
+│ │ { "cwd": "/path", "git": {...}, "session": {...} }      │ │
+│ └─────────────────────────────────────────────────────────┘ │
+└─────────────────────────┬───────────────────────────────────┘
+                          │
+                          ▼
+┌─────────────────────────────────────────────────────────────┐
+│ cc-hud (src/index.ts)                                       │
+│                                                             │
+│ ┌─────────────────┐  ┌─────────────────┐  ┌──────────────┐ │
+│ │ Config Parser   │  │ ccusage Library │  │ Codex CLI    │ │
+│ │ (config/)       │  │ (daily usage)   │  │ (via bunx)   │ │
+│ │                 │  │                 │  │              │ │
+│ │ ~/.claude/      │  │ JSONL           │  │ @ccusage/    │ │
+│ │ cc-hud.json     │  │ transcripts     │  │ codex        │ │
+│ └─────────────────┘  └─────────────────┘  └──────────────┘ │
+│          │                    │                  │          │
+│          └────────────────────┼──────────────────┘          │
+│                               ▼                             │
+│                    ┌──────────────────┐                     │
+│                    │ Segment System   │                     │
+│                    │ (segments/)      │                     │
+│                    │                  │                     │
+│                    │ - UsageSegment   │                     │
+│                    │ - PaceSegment    │                     │
+│                    │ - DirectorySegment│                    │
+│                    │ - GitSegment     │                     │
+│                    │ - PrSegment      │                     │
+│                    │ - TimeSegment    │                     │
+│                    │ - ThoughtsSegment│                     │
+│                    └──────────────────┘                     │
+│                               │                             │
+│                               ▼                             │
+│                    ┌──────────────────┐                     │
+│                    │ Powerline        │                     │
+│                    │ Renderer         │                     │
+│                    │ (renderer/)      │                     │
+│                    └──────────────────┘                     │
+│                               │                             │
+└───────────────────────────────┼─────────────────────────────┘
+                                ▼
+                  ANSI-colored string to stdout
+           "› repos/cc-hud | ⎇ main ✗ | Σ $240 today | ..."
 ```
 
 ## Project Structure
@@ -71,20 +71,31 @@ cc-hud/
 │   ├── index.ts              # Main entry point
 │   ├── segments/
 │   │   ├── base.ts           # Segment interface
-│   │   ├── usage.ts          # Usage segment implementation
-│   │   ├── directory.ts      # Directory segment implementation
-│   │   ├── git.ts            # Git segment implementation
+│   │   ├── usage.ts          # Daily cost (ccusage + Codex)
+│   │   ├── pace.ts           # EWMA hourly burn rate
+│   │   ├── directory.ts      # Current path display
+│   │   ├── git.ts            # Git repository status
+│   │   ├── git-utils.ts      # Git helper functions
+│   │   ├── pr.ts             # GitHub PR segment
+│   │   ├── pr-utils.ts       # PR helper functions
+│   │   ├── time.ts           # Current time display
+│   │   ├── thoughts.ts       # Random quotes/thoughts
 │   │   └── index.ts          # Segment registry
-│   ├── database/
-│   │   ├── client.ts         # SQLite connection wrapper
-│   │   └── queries.ts        # Database query functions
+│   ├── usage/
+│   │   └── hourly-calculator.ts  # EWMA pace calculation
 │   ├── config/
+│   │   ├── types.ts          # TypeScript interfaces
 │   │   ├── parser.ts         # Config file parser
 │   │   ├── validator.ts      # Config validation
-│   │   └── defaults.ts       # Default configuration
+│   │   ├── defaults.ts       # Default configuration
+│   │   └── index.ts          # Config exports
+│   ├── database/
+│   │   ├── client.ts         # SQLite connection (legacy)
+│   │   └── index.ts          # Database exports
 │   └── renderer/
-│       ├── powerline.ts      # Powerline rendering logic
-│       └── colors.ts         # Color utilities
+│       ├── powerline.ts      # Powerline/text-mode rendering
+│       ├── separators.ts     # Separator character definitions
+│       └── index.ts          # Renderer exports
 ├── docs/
 │   ├── DESIGN.md             # Design decisions
 │   └── ARCHITECTURE.md       # This file
@@ -100,28 +111,39 @@ cc-hud/
 ```typescript
 #!/usr/bin/env bun
 
-// 1. Read stdin from Claude Code
-const input = await readStdin();
-const sessionData = JSON.parse(input);
+async function main() {
+  // 1. Read stdin from Claude Code
+  const input = await readStdin();
+  const sessionData = JSON.parse(input);
 
-// 2. Load and validate config
-const config = await loadConfig('~/.claude/cc-hud.json');
+  // 2. Load and validate config
+  const config = await loadConfig();
 
-// 3. Initialize database connection
-const db = new DatabaseClient('~/.claude/statusline-usage.db');
+  // 3. Create segment instances
+  const segments = config.segments.map(segmentConfig =>
+    createSegment(segmentConfig)
+  );
 
-// 4. Render each segment
-const segments = config.segments.map(segmentConfig => {
-  const Segment = getSegmentClass(segmentConfig.type);
-  const segment = new Segment(segmentConfig);
-  return segment.render(sessionData, db);
-});
+  // 4. Update async caches (usage, pace, etc.) in parallel
+  await Promise.all(
+    segments.map(async segment => {
+      if ('updateCache' in segment) {
+        await segment.updateCache();
+      }
+    })
+  );
 
-// 5. Apply powerline styling
-const statusline = renderPowerline(segments, config.theme);
+  // 5. Render all segments synchronously
+  const segmentDataList = segments.map(segment =>
+    segment.render(sessionData, db)
+  );
 
-// 6. Output to stdout
-console.log(statusline);
+  // 6. Apply powerline styling
+  const statusline = renderPowerline(segmentDataList, config.theme);
+
+  // 7. Output to stdout
+  console.log(statusline);
+}
 ```
 
 ### 2. Segment System
@@ -129,15 +151,6 @@ console.log(statusline);
 **Base Interface (src/segments/base.ts):**
 
 ```typescript
-export interface SegmentConfig {
-  type: string;
-  display: Record<string, any>;
-  colors: {
-    fg: string;
-    bg: string;
-  };
-}
-
 export interface SegmentData {
   text: string;
   colors: {
@@ -149,365 +162,152 @@ export interface SegmentData {
 export abstract class Segment {
   constructor(protected config: SegmentConfig) {}
 
-  abstract render(
-    sessionData: any,
-    db: DatabaseClient
-  ): SegmentData;
+  abstract render(input: ClaudeCodeInput, db: DatabaseClient): SegmentData;
 
-  abstract getDefaultConfig(): Partial<SegmentConfig>;
+  // Optional async cache update
+  async updateCache?(): Promise<void>;
 }
 ```
 
 **Usage Segment (src/segments/usage.ts):**
 
+Combines Claude Code and Codex CLI usage:
+
 ```typescript
 export class UsageSegment extends Segment {
-  render(sessionData: any, db: DatabaseClient): SegmentData {
-    const { display } = this.config;
-    const today = new Date().toISOString().split('T')[0];
+  async updateCache(): Promise<void> {
+    const timezone = getSystemTimezone();
 
-    // Query database for today's totals
-    const data = db.getDailySummary(today);
+    // Fetch both sources in parallel
+    const [claudeData, codexData] = await Promise.all([
+      this.loadTodayData(),      // ccusage library
+      loadCodexTodayData(timezone), // bunx @ccusage/codex
+    ]);
 
-    // Build text based on display flags
-    const parts: string[] = [];
-
-    if (display.cost) {
-      parts.push(`$${data.total_cost.toFixed(2)}`);
-    }
-
-    if (display.tokens) {
-      const totalTokens =
-        data.total_input_tokens +
-        data.total_output_tokens;
-      parts.push(`${formatTokens(totalTokens)}`);
-    }
-
-    if (display.period) {
-      parts.push(display.period);
-    }
-
-    return {
-      text: parts.join(' '),
-      colors: this.config.colors
-    };
-  }
-
-  getDefaultConfig(): Partial<SegmentConfig> {
-    return {
-      display: {
-        cost: true,
-        tokens: false,
-        period: 'today'
-      },
-      colors: {
-        fg: '#88c0d0',
-        bg: '#2e3440'
-      }
+    // Combine costs
+    this.cachedData = {
+      date: getTodayDate(),
+      cost: claudeData.cost + codexData.cost,
+      tokens: claudeData.inputTokens + claudeData.outputTokens +
+              codexData.inputTokens + codexData.outputTokens,
     };
   }
 }
 ```
 
-**Directory Segment (src/segments/directory.ts):**
+**Pace Segment (src/segments/pace.ts):**
+
+Uses EWMA for smoothed burn rate:
 
 ```typescript
-export class DirectorySegment extends Segment {
-  render(sessionData: any, db: DatabaseClient): SegmentData {
-    const { display } = this.config;
-    const cwd = sessionData.cwd || process.cwd();
-
-    let text = '';
-
-    if (display.icon) {
-      text += ' ';  // Folder icon
-    }
-
-    if (display.fullPath) {
-      text += cwd;
-    } else {
-      // Just the directory name
-      text += cwd.split('/').pop() || cwd;
-    }
-
-    return {
-      text,
-      colors: this.config.colors
-    };
-  }
-
-  getDefaultConfig(): Partial<SegmentConfig> {
-    return {
-      display: {
-        icon: true,
-        fullPath: false
-      },
-      colors: {
-        fg: '#d8dee9',
-        bg: '#2e3440'
-      }
-    };
+export class PaceSegment extends Segment {
+  async updateCache(): Promise<void> {
+    const hourlyUsage = await calculatePace({
+      halfLifeMinutes: this.config.display.halfLifeMinutes,
+    });
+    this.cachedPace = hourlyUsage.pace;
   }
 }
 ```
 
-**Git Segment (src/segments/git.ts):**
+### 3. EWMA Pace Calculation (src/usage/hourly-calculator.ts)
+
+The pace calculator reads JSONL transcript files and applies exponential decay weighting:
 
 ```typescript
-export class GitSegment extends Segment {
-  render(sessionData: any, db: DatabaseClient): SegmentData {
-    const { display } = this.config;
-    const git = sessionData.git;
+function calculateEWMAPace(
+  costs: TimestampedCost[],
+  halfLifeMs: number,
+  now: number
+): number {
+  if (costs.length === 0) return 0;
 
-    if (!git || !git.branch) {
-      return { text: '', colors: this.config.colors };
-    }
+  // Weight each cost by recency using exponential decay
+  let weightedCostSum = 0;
 
-    const parts: string[] = [];
-
-    if (display.branch) {
-      parts.push(` ${git.branch}`);  //  = git branch icon
-    }
-
-    if (display.status && git.isDirty) {
-      parts.push('✗');
-    }
-
-    if (display.ahead && git.ahead > 0) {
-      parts.push(`↑${git.ahead}`);
-    }
-
-    if (display.behind && git.behind > 0) {
-      parts.push(`↓${git.behind}`);
-    }
-
-    return {
-      text: parts.join(' '),
-      colors: this.config.colors
-    };
+  for (const { timestamp, cost } of costs) {
+    const ageMs = now - timestamp;
+    // Weight = 2^(-age / halfLife), so recent ≈ 1, old → 0
+    const weight = Math.pow(2, -ageMs / halfLifeMs);
+    weightedCostSum += cost * weight;
   }
 
-  getDefaultConfig(): Partial<SegmentConfig> {
-    return {
-      display: {
-        branch: true,
-        status: true,
-        ahead: true,
-        behind: true
-      },
-      colors: {
-        fg: '#8fbcbb',
-        bg: '#2e3440'
-      }
-    };
-  }
+  // Normalize by effective window (halfLife / ln(2))
+  const effectiveWindowMs = halfLifeMs / Math.LN2;
+  const effectiveWindowHours = effectiveWindowMs / (1000 * 60 * 60);
+
+  return weightedCostSum / effectiveWindowHours;
 }
 ```
 
-### 3. Database Layer (src/database/)
+**Key features:**
+- Reads JSONL files from `~/.claude/projects/*/`
+- Filters entries within lookback window (6 × half-life)
+- Applies exponential decay weighting
+- Returns $/hr pace
 
-**Client (src/database/client.ts):**
+### 4. Powerline Renderer (src/renderer/powerline.ts)
 
-```typescript
-import { Database } from 'bun:sqlite';
-
-export class DatabaseClient {
-  private db: Database;
-
-  constructor(dbPath: string) {
-    this.db = new Database(dbPath, { readonly: true });
-  }
-
-  getDailySummary(date: string): DailySummary {
-    const query = `
-      SELECT
-        total_sessions,
-        total_input_tokens,
-        total_output_tokens,
-        total_cache_tokens,
-        total_cost,
-        models_used
-      FROM daily_summaries
-      WHERE date = ?
-    `;
-
-    const result = this.db.query(query).get(date);
-
-    return result || {
-      total_sessions: 0,
-      total_input_tokens: 0,
-      total_output_tokens: 0,
-      total_cache_tokens: 0,
-      total_cost: 0.0,
-      models_used: '[]'
-    };
-  }
-
-  close() {
-    this.db.close();
-  }
-}
-```
-
-**Database Schema Reference:**
-
-Claude maintains the database at `~/.claude/statusline-usage.db` with the following schema:
-
-```sql
-CREATE TABLE daily_summaries (
-    date TEXT PRIMARY KEY,              -- 'YYYY-MM-DD'
-    total_sessions INTEGER DEFAULT 0,
-    total_input_tokens INTEGER DEFAULT 0,
-    total_output_tokens INTEGER DEFAULT 0,
-    total_cache_tokens INTEGER DEFAULT 0,
-    total_cost REAL DEFAULT 0.0,
-    models_used TEXT DEFAULT '[]',      -- JSON array
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-```
-
-### 4. Configuration System (src/config/)
-
-**Parser (src/config/parser.ts):**
+Supports two color modes:
 
 ```typescript
-import { readFile } from 'fs/promises';
-import { homedir } from 'os';
-import { join } from 'path';
-
-export async function loadConfig(): Promise<Config> {
-  const configPath = join(homedir(), '.claude', 'cc-hud.json');
-
-  try {
-    const content = await readFile(configPath, 'utf-8');
-    const userConfig = JSON.parse(content);
-
-    // Validate config
-    validateConfig(userConfig);
-
-    // Merge with defaults
-    return mergeWithDefaults(userConfig);
-  } catch (error) {
-    if (error.code === 'ENOENT') {
-      // Config doesn't exist, use defaults
-      return getDefaultConfig();
-    }
-    throw error;
-  }
-}
-```
-
-**Validator (src/config/validator.ts):**
-
-```typescript
-export function validateConfig(config: any): void {
-  if (!config.segments || !Array.isArray(config.segments)) {
-    throw new Error('Config must have segments array');
-  }
-
-  for (const segment of config.segments) {
-    if (!segment.type) {
-      throw new Error('Each segment must have a type');
-    }
-
-    if (!segment.display) {
-      throw new Error('Each segment must have display config');
-    }
-
-    if (!segment.colors || !segment.colors.fg || !segment.colors.bg) {
-      throw new Error('Each segment must have fg and bg colors');
-    }
-
-    // Validate hex colors
-    if (!isValidHex(segment.colors.fg) || !isValidHex(segment.colors.bg)) {
-      throw new Error('Colors must be valid hex codes (#rrggbb)');
-    }
-  }
-
-  if (config.theme) {
-    const validStyles = ['angled', 'thin', 'rounded', 'flame'];
-    if (!validStyles.includes(config.theme.separatorStyle)) {
-      throw new Error(`Invalid separator style. Must be one of: ${validStyles.join(', ')}`);
-    }
-  }
-}
-```
-
-### 5. Powerline Renderer (src/renderer/)
-
-**Separator Definitions:**
-
-```typescript
-export const SEPARATORS = {
-  angled: {
-    right: '\uE0B0',  //
-    left: '\uE0B2'    //
-  },
-  thin: {
-    right: '\uE0B1',  //
-    left: '\uE0B3'    //
-  },
-  rounded: {
-    right: '\uE0B4',  //
-    left: '\uE0B6'    //
-  },
-  flame: {
-    right: '\uE0C0',  //
-    left: '\uE0C2'    //
-  }
-};
-```
-
-**Renderer (src/renderer/powerline.ts):**
-
-```typescript
-import chalk from 'chalk';
-
 export function renderPowerline(
   segments: SegmentData[],
   theme: ThemeConfig
 ): string {
-  const separator = SEPARATORS[theme.separatorStyle || 'angled'].right;
+  const isTextMode = theme.colorMode === 'text';
   const parts: string[] = [];
 
   for (let i = 0; i < segments.length; i++) {
     const segment = segments[i];
-    const nextSegment = segments[i + 1];
 
-    // Skip empty segments
-    if (!segment.text) continue;
-
-    // Render segment text with colors
-    const styledText = chalk
-      .hex(segment.colors.fg)
-      .bgHex(segment.colors.bg)(` ${segment.text} `);
+    if (isTextMode) {
+      // Text mode: colored text only
+      styledText = chalk.hex(segment.colors.fg)(segment.text);
+      separator = chalk.dim('|');
+    } else {
+      // Background mode: colored backgrounds with powerline separators
+      styledText = chalk
+        .hex(segment.colors.fg)
+        .bgHex(segment.colors.bg)(` ${segment.text} `);
+      separator = chalk
+        .hex(darkenColor(segment.colors.bg))
+        .bgHex(nextSegment.colors.bg)(SEPARATORS[style].right);
+    }
 
     parts.push(styledText);
-
-    // Add separator between segments
-    if (nextSegment) {
-      // Separator color = current segment bg on next segment bg
-      const styledSeparator = chalk
-        .hex(segment.colors.bg)
-        .bgHex(nextSegment.colors.bg)(separator);
-
-      parts.push(styledSeparator);
-    } else {
-      // Final separator (segment bg on terminal default)
-      const styledSeparator = chalk.hex(segment.colors.bg)(separator);
-      parts.push(styledSeparator);
-    }
+    if (nextSegment) parts.push(separator);
   }
 
-  return parts.join('');
+  // Join with spaces for word-wrap friendliness
+  return parts.join(' ');
 }
 ```
 
-**Key Insight:** The separator between two segments is painted with:
-- **Foreground color:** Current segment's background
-- **Background color:** Next segment's background (or terminal default for last segment)
+### 5. Configuration System (src/config/)
 
-This creates the seamless "flowing" powerline effect.
+**Type Definitions (src/config/types.ts):**
+
+```typescript
+export type SeparatorStyle = 'angled' | 'thin' | 'rounded' | 'flame' | 'slant' | 'backslant';
+export type ColorMode = 'background' | 'text';
+export type PathDisplayMode = 'name' | 'full' | 'project' | 'parent';
+
+export interface ThemeConfig {
+  powerline: boolean;
+  separatorStyle: SeparatorStyle;
+  colorMode: ColorMode;
+}
+
+export type SegmentConfig =
+  | UsageSegmentConfig
+  | PaceSegmentConfig
+  | DirectorySegmentConfig
+  | GitSegmentConfig
+  | PrSegmentConfig
+  | TimeSegmentConfig
+  | ThoughtsSegmentConfig;
+```
 
 ## Data Flow
 
@@ -520,201 +320,133 @@ Claude Code sends JSON via stdin:
   "cwd": "/Users/josh/repos/cc-hud",
   "git": {
     "branch": "main",
-    "isDirty": false,
+    "isDirty": true,
     "ahead": 0,
     "behind": 0
   },
   "session": {
     "id": "session-123",
-    "model": "claude-sonnet-4"
+    "model": "claude-opus-4-5"
   }
 }
 ```
 
-### Configuration Example
+### Usage Data Sources
 
-User's `~/.claude/cc-hud.json`:
+**Claude Code (ccusage library):**
+- Reads JSONL transcripts from `~/.claude/projects/`
+- Uses `loadDailyUsageData()` with current timezone
+- Fetches latest pricing with `offline: false`
 
-```json
-{
-  "segments": [
-    {
-      "type": "usage",
-      "display": {
-        "cost": true,
-        "tokens": false,
-        "period": "today"
-      },
-      "colors": {
-        "fg": "#88c0d0",
-        "bg": "#2e3440"
-      }
-    },
-    {
-      "type": "directory",
-      "display": {
-        "icon": true,
-        "fullPath": false
-      },
-      "colors": {
-        "fg": "#d8dee9",
-        "bg": "#2e3440"
-      }
-    },
-    {
-      "type": "git",
-      "display": {
-        "branch": true,
-        "status": true,
-        "ahead": true,
-        "behind": true
-      },
-      "colors": {
-        "fg": "#8fbcbb",
-        "bg": "#2e3440"
-      }
-    }
-  ],
-  "theme": {
-    "powerline": true,
-    "separatorStyle": "angled"
-  }
-}
-```
+**Codex CLI:**
+- Runs `bunx @ccusage/codex@latest daily --json --since <today>`
+- Parses JSON output for today's totals
+- Gracefully fails if CLI unavailable
 
-### Output to stdout
+### Pace Calculation
 
-Single line of ANSI-colored text:
+1. Scan JSONL files modified within lookback window
+2. Parse entries with `message.usage` data
+3. Calculate cost per entry using model pricing table
+4. Apply EWMA weighting based on timestamp age
+5. Normalize by effective window for $/hr rate
+
+### Output
+
+Single line of ANSI-colored text with word-wrap-friendly spacing:
 
 ```
- $1.23 today  cc-hud  main
+› repos/cc-hud | ⎇ main ✗ | ↑↰ #123 | Σ $240.76 today | △ $28.35/hr | ◔ 10:16pm | ◇ Quote here
 ```
-
-(With appropriate colors and powerline separators, which don't render in plain text)
 
 ## Performance Considerations
 
-### Startup Time
-
-Target: <10ms total execution time
+### Target: <100ms total execution
 
 **Breakdown:**
 - Bun startup: ~3-5ms
 - Read stdin: ~1ms
-- Load config: ~1ms (cached after first run)
-- SQLite query: ~1-2ms (single row lookup)
+- Load config: ~1ms (file read)
+- ccusage fetch: ~50-100ms (parallel with Codex)
+- Codex CLI: ~50-100ms (parallel with ccusage)
+- Pace calculation: ~5-10ms (file I/O)
 - Render segments: ~1ms
 - Output: <1ms
 
 **Optimizations:**
-- Use Bun's native SQLite (faster than better-sqlite3)
-- Read-only database connection
-- Config caching (future)
-- Minimal dependencies (only chalk)
+- Parallel async fetches (ccusage + Codex)
+- Direct JSONL file reading for pace (no external process)
+- Minimal dependencies (chalk only)
+- Space-joined output (simple string concatenation)
 
 ### Memory Usage
 
-Target: <20MB
+Target: <30MB
 
 - Bun runtime: ~10MB base
-- SQLite connection: ~1-2MB
-- Config + segments: <1MB
+- ccusage data: ~5MB
+- JSONL parsing: ~5MB (streaming)
 - chalk: ~1MB
 
 ## Error Handling
 
 ### Graceful Degradation
 
-If any component fails, cc-hud should:
-1. Log error to stderr (not stdout, to avoid breaking statusline)
-2. Fall back to minimal display or skip failed segment
-3. Never crash Claude Code
+If any component fails, cc-hud:
+1. Logs error to stderr (not stdout)
+2. Falls back to default or skips segment
+3. Never crashes Claude Code
 
-**Example:**
+**Examples:**
 
 ```typescript
-try {
-  const usageData = db.getDailySummary(today);
-  // render usage segment
-} catch (error) {
-  console.error('[cc-hud] Failed to load usage data:', error);
-  // Skip usage segment, continue with other segments
+// Codex CLI unavailable
+async function loadCodexTodayData() {
+  try {
+    const result = execSync('bunx @ccusage/codex...');
+    return JSON.parse(result);
+  } catch {
+    // Silently return zero - Codex is optional
+    return { cost: 0, inputTokens: 0, outputTokens: 0 };
+  }
 }
-```
 
-### Config Validation
-
-Invalid config should:
-1. Show clear error message
-2. Suggest fix
-3. Fall back to defaults if possible
-
-**Example:**
-
-```typescript
+// Config validation
 try {
   validateConfig(userConfig);
 } catch (error) {
   console.error('[cc-hud] Invalid config:', error.message);
-  console.error('[cc-hud] Falling back to default configuration');
   return getDefaultConfig();
 }
 ```
 
 ## Testing Strategy
 
-### Unit Tests
-
-- Segment rendering logic
-- Config parsing and validation
-- Color utilities
-- Powerline separator logic
-
-### Integration Tests
-
-- End-to-end: JSON input → rendered output
-- Database queries with test database
-- Config loading from file
-
 ### Manual Testing
-
 - Test with Claude Code in real environment
 - Verify all separator styles render correctly
-- Check various terminal emulators (iTerm2, Alacritty, Warp, etc.)
-- Test with different Nerd Fonts
+- Check text mode vs background mode
+- Test word-wrapping behavior
+- Verify EWMA decay over time
 
-## Future Enhancements
-
-### Phase 2 Features
-
-1. **Multiple time periods** for usage segment
-2. **Format strings** for custom templates
-3. **Plugin system** for custom segments
-4. **Theme presets** (nord, dracula, gruvbox, etc.)
-5. **Config validation command** (`bunx cc-hud validate`)
-6. **Live reload** on config changes
-7. **Performance profiling** command for debugging
-
-### Architectural Considerations
-
-- Keep segment system extensible (easy to add new segments)
-- Maintain config backwards compatibility
-- Consider plugin API for third-party segments
-- Document extension points for contributors
-
----
+### Performance Testing
+- Measure startup time with `time bunx cc-hud`
+- Profile slow segments individually
+- Monitor memory with `--inspect`
 
 ## Summary
 
-cc-hud uses a clean, modular architecture:
-- **Segment system** for extensibility
+cc-hud uses a modular architecture:
+- **Segment system** for extensibility (7 segment types)
 - **Bun + TypeScript** for speed and maintainability
-- **Native SQLite** for fast database access
-- **Powerline renderer** for beautiful output
-- **Simple config format** for user customization
+- **ccusage + Codex CLI** for comprehensive usage tracking
+- **EWMA algorithm** for intelligent pace calculation
+- **Dual color modes** (background powerline or text-only)
+- **Word-wrap friendly** output with space-joined parts
 
 The design prioritizes:
-1. **Performance** (<10ms execution time)
-2. **Reliability** (graceful error handling)
-3. **Extensibility** (easy to add segments)
-4. **User experience** (simple configuration)
+1. **Accuracy** (combined usage sources, EWMA smoothing)
+2. **Performance** (<100ms execution time)
+3. **Reliability** (graceful error handling)
+4. **Extensibility** (easy to add segments)
+5. **User experience** (simple configuration, sensible defaults)
