@@ -410,7 +410,7 @@ export class ThoughtsSegment extends Segment {
 
     // Add icon if enabled
     if (display.icon) {
-      parts.push('✦');  // Four-pointed star (same as Claude.ai)
+      parts.push('✻');  // Teardrop-spoked asterisk (same as Claude Code)
     }
 
     // Add thought with optional quotes
