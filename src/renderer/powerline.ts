@@ -54,13 +54,14 @@ export function renderPowerline(
     const segment = nonEmptySegments[i];
     const nextSegment = nonEmptySegments[i + 1];
 
-    // Render segment text with padding and colors
+    // Render segment text with colors
+    // Padding is minimal since parts.join(' ') handles spacing between units
     let styledText: string;
     if (isTextMode) {
       // Text mode: only foreground color, no background
-      styledText = chalk.hex(segment.colors.fg)(` ${segment.text} `);
+      styledText = chalk.hex(segment.colors.fg)(segment.text);
     } else {
-      // Background mode: both foreground and background colors
+      // Background mode: both foreground and background colors (keep padding for visual)
       styledText = chalk
         .hex(segment.colors.fg)
         .bgHex(segment.colors.bg)(` ${segment.text} `);
@@ -69,9 +70,10 @@ export function renderPowerline(
     parts.push(styledText);
 
     // Add separator between segments
+    // Separators are their own unit so terminal word-wrap breaks at segment boundaries
     if (nextSegment) {
       if (isTextMode) {
-        // Text mode: simple pipe separator with dimmed color
+        // Text mode: pipe separator as its own word-break unit
         parts.push(chalk.dim('|'));
       } else if (theme.powerline) {
         // Background mode with powerline: colored separators
@@ -92,5 +94,6 @@ export function renderPowerline(
     }
   }
 
-  return parts.join('');
+  // Join with spaces so terminal can word-wrap at segment boundaries
+  return parts.join(' ');
 }
