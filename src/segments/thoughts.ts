@@ -423,6 +423,7 @@ export class ThoughtsSegment extends Segment {
     return {
       text: parts.join(' '),
       colors,
+      allowWrap: true,  // Thoughts can be long, allow internal word-wrap
     };
   }
 }

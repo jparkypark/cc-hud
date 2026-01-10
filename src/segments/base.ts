@@ -14,6 +14,7 @@ export interface SegmentData {
     fg: string;
     bg: string;
   };
+  allowWrap?: boolean;  // If true, allow internal word-wrap (default: false)
 }
 
 /**
