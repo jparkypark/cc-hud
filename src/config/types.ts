@@ -11,6 +11,9 @@ export interface SegmentColors {
   bg: string;
 }
 
+// TODO: Add iconStyle option to toggle between UTF-8 characters (current default)
+// and Nerd Font powerline glyphs for users with compatible fonts.
+// e.g., iconStyle: 'utf8' | 'nerdfonts'
 export interface ThemeConfig {
   powerline: boolean;
   separatorStyle: SeparatorStyle;

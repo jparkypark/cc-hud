@@ -202,7 +202,8 @@ Six powerline separator styles with automatic 10% color darkening to compensate 
 - Bun 1.0+ (already installed if you use Claude Code)
 - Claude Code
 - Terminal with Unicode support
-- Font with powerline glyphs (Comic Code Ligatures, any Nerd Font, or many monospace fonts)
+- Any monospace font (icons use UTF-8 characters, not powerline glyphs)
+- Optional: Nerd Font for powerline separators in background color mode
 - Optional: `gh` CLI for PR segment
 
 ## License
