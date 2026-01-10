@@ -420,8 +420,9 @@ export class ThoughtsSegment extends Segment {
       parts.push(thought);
     }
 
+    // Join with non-breaking space so icon stays with first word
     return {
-      text: parts.join(' '),
+      text: parts.join('\u00A0'),
       colors,
       allowWrap: true,  // Thoughts can be long, allow internal word-wrap
     };
