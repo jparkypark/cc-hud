@@ -410,7 +410,7 @@ export class ThoughtsSegment extends Segment {
 
     // Add icon if enabled
     if (display.icon) {
-      parts.push('◇');  // White diamond
+      parts.push('❇');  // Sparkle
     }
 
     // Add thought with optional quotes

@@ -176,7 +176,7 @@ Random thoughts or inspirational quotes.
 
 | Option | Description |
 |--------|-------------|
-| `icon` | Show ◇ symbol |
+| `icon` | Show ❇ symbol |
 | `quotes` | Wrap text in quote marks |
 | `customThoughts` | Array of custom thought strings |
 | `useApiQuotes` | Fetch quotes from zenquotes.io API |
