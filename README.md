@@ -2,6 +2,8 @@
 
 A customizable heads-up display for Claude Code with live usage tracking, EWMA pace calculation, and powerline styling.
 
+![cc-hud screenshot](docs/images/screenshot.png)
+
 ## Why cc-hud?
 
 Existing Claude Code statusline packages don't offer enough customization:
@@ -110,30 +112,6 @@ Config file: `~/.claude/cc-hud.json`
 
 ## Available Segments
 
-### Usage
-Daily cost combining Claude Code and Codex CLI usage via [ccusage](https://github.com/jparkerweb/ccusage).
-
-| Option | Description |
-|--------|-------------|
-| `icon` | Show Σ symbol |
-| `cost` | Show daily cost in dollars |
-| `tokens` | Show total token count (K/M suffix) |
-| `period` | Label to show (e.g., "today") |
-
-### Pace
-EWMA-smoothed hourly burn rate. Recent costs are weighted more heavily, and pace naturally decays when idle.
-
-| Option | Description |
-|--------|-------------|
-| `icon` | Show △ symbol |
-| `period` | Label (currently only "hourly") |
-| `halfLifeMinutes` | EWMA half-life (default: 7, giving ~10 min effective window) |
-
-**How half-life works:**
-- Cost from 1 half-life ago: 50% weight
-- Cost from 2 half-lives ago: 25% weight
-- Cost from 3 half-lives ago: 12.5% weight
-
 ### Directory
 Current working directory with flexible path display.
 
@@ -161,6 +139,30 @@ GitHub pull request for current branch (uses `gh` CLI).
 |--------|-------------|
 | `icon` | Show ↑↰ symbol |
 | `number` | Show PR number |
+
+### Usage
+Daily cost combining Claude Code and Codex CLI usage via [ccusage](https://github.com/jparkerweb/ccusage).
+
+| Option | Description |
+|--------|-------------|
+| `icon` | Show Σ symbol |
+| `cost` | Show daily cost in dollars |
+| `tokens` | Show total token count (K/M suffix) |
+| `period` | Label to show (e.g., "today") |
+
+### Pace
+EWMA-smoothed hourly burn rate. Recent costs are weighted more heavily, and pace naturally decays when idle.
+
+| Option | Description |
+|--------|-------------|
+| `icon` | Show △ symbol |
+| `period` | Label (currently only "hourly") |
+| `halfLifeMinutes` | EWMA half-life (default: 7, giving ~10 min effective window) |
+
+**How half-life works:**
+- Cost from 1 half-life ago: 50% weight
+- Cost from 2 half-lives ago: 25% weight
+- Cost from 3 half-lives ago: 12.5% weight
 
 ### Time
 Current time display.
