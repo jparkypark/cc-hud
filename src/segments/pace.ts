@@ -40,7 +40,9 @@ export class PaceSegment extends Segment {
    * Update cached pace (call this before render)
    */
   async updateCache(): Promise<void> {
-    const hourlyUsage = await calculatePace();
+    const hourlyUsage = await calculatePace({
+      halfLifeMinutes: this.config.display.halfLifeMinutes,
+    });
     this.cachedPace = hourlyUsage.pace;
   }
 }

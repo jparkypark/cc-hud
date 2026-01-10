@@ -35,6 +35,7 @@ export interface UsageSegmentConfig {
 export interface PaceSegmentDisplay {
   icon: boolean;
   period: 'hourly';  // Only 'hourly' in MVP
+  halfLifeMinutes: number;  // EWMA half-life in minutes (default: 5)
 }
 
 export interface PaceSegmentConfig {

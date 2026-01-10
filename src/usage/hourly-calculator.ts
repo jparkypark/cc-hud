@@ -9,12 +9,21 @@ import { homedir } from 'os';
 
 export interface HourlyUsage {
   cost: number;
-  pace: number;  // Extrapolated $/hr based on active time
+  pace: number;  // EWMA-smoothed $/hr rate
   inputTokens: number;
   outputTokens: number;
   cacheTokens: number;
   apiCalls: number;
   activeMinutes: number;  // Minutes since first activity in window
+}
+
+export interface PaceOptions {
+  halfLifeMinutes?: number;  // EWMA half-life in minutes (default: 5)
+}
+
+interface TimestampedCost {
+  timestamp: number;
+  cost: number;
 }
 
 // Pricing per million tokens (from Anthropic's official pricing)
@@ -89,6 +98,44 @@ const PRICING: Record<string, {
 };
 
 /**
+ * Calculate EWMA pace from timestamped costs
+ *
+ * Uses exponential decay weighting where recent costs have more influence.
+ * The half-life determines how quickly older costs fade:
+ * - At 1 half-life ago: weight = 0.5
+ * - At 2 half-lives ago: weight = 0.25
+ * - At 3 half-lives ago: weight = 0.125
+ *
+ * The pace is calculated by summing weighted costs and dividing by the
+ * "effective time window" which is approximately 1.44 × halfLife.
+ */
+function calculateEWMAPace(
+  costs: TimestampedCost[],
+  halfLifeMs: number,
+  now: number
+): number {
+  if (costs.length === 0) return 0;
+
+  // Weight each cost by recency using exponential decay
+  let weightedCostSum = 0;
+
+  for (const { timestamp, cost } of costs) {
+    const ageMs = now - timestamp;
+    // Weight = 2^(-age / halfLife), so recent ≈ 1, old → 0
+    const weight = Math.pow(2, -ageMs / halfLifeMs);
+    weightedCostSum += cost * weight;
+  }
+
+  // The integral of 2^(-t/h) from 0 to ∞ is h / ln(2) ≈ 1.44 × h
+  // This gives us the "effective window" for normalization
+  const effectiveWindowMs = halfLifeMs / Math.LN2;
+  const effectiveWindowHours = effectiveWindowMs / (1000 * 60 * 60);
+
+  // Pace in $/hr
+  return weightedCostSum / effectiveWindowHours;
+}
+
+/**
  * Calculate cost for a single transcript entry
  */
 function calculateEntryCost(entry: any): number {
@@ -132,31 +179,40 @@ function calculateEntryCost(entry: any): number {
 
 /**
  * Calculate usage for the last hour by reading JSONL transcripts
+ * Uses EWMA (Exponential Weighted Moving Average) for pace calculation
  */
-export async function calculatePace(): Promise<HourlyUsage> {
+export async function calculatePace(options: PaceOptions = {}): Promise<HourlyUsage> {
+  const { halfLifeMinutes = 5 } = options;
+  const halfLifeMs = halfLifeMinutes * 60 * 1000;
+
   const projectsDir = join(homedir(), '.claude', 'projects');
-  const oneHourAgo = Date.now() - (60 * 60 * 1000);
+  const now = Date.now();
+  // Look back further than the half-life to capture decaying costs
+  // 6 half-lives gives us 98.4% of the weight (2^-6 ≈ 0.016)
+  const lookbackMs = Math.max(halfLifeMs * 6, 60 * 60 * 1000);
+  const cutoffTime = now - lookbackMs;
 
-  // Find all JSONL files modified in the last hour
+  // Find all JSONL files modified within the lookback window
   const recentFiles: string[] = [];
-  const entries = readdirSync(projectsDir, { withFileTypes: true });
+  const dirEntries = readdirSync(projectsDir, { withFileTypes: true });
 
-  for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
+  for (const dirEntry of dirEntries) {
+    if (!dirEntry.isDirectory()) continue;
 
-    const projectPath = join(projectsDir, entry.name);
+    const projectPath = join(projectsDir, dirEntry.name);
     const files = readdirSync(projectPath).filter(f => f.endsWith('.jsonl'));
 
     for (const file of files) {
       const filePath = join(projectPath, file);
       const stats = statSync(filePath);
-      if (stats.mtimeMs > oneHourAgo) {
+      if (stats.mtimeMs > cutoffTime) {
         recentFiles.push(filePath);
       }
     }
   }
 
-  // Calculate costs for entries in the last hour
+  // Collect timestamped costs for EWMA and aggregate totals
+  const timestampedCosts: TimestampedCost[] = [];
   let totalCost = 0;
   let totalInputTokens = 0;
   let totalOutputTokens = 0;
@@ -173,7 +229,7 @@ export async function calculatePace(): Promise<HourlyUsage> {
         const entry = JSON.parse(line);
         const entryTime = new Date(entry.timestamp).getTime();
 
-        if (entryTime > oneHourAgo && entry.message?.usage) {
+        if (entryTime > cutoffTime && entry.message?.usage) {
           // Track earliest activity
           if (entryTime < earliestTimestamp) {
             earliestTimestamp = entryTime;
@@ -182,6 +238,11 @@ export async function calculatePace(): Promise<HourlyUsage> {
           // Calculate cost
           const cost = calculateEntryCost(entry);
           totalCost += cost;
+
+          // Collect for EWMA calculation
+          if (cost > 0) {
+            timestampedCosts.push({ timestamp: entryTime, cost });
+          }
 
           // Sum tokens
           const usage = entry.message.usage;
@@ -206,14 +267,12 @@ export async function calculatePace(): Promise<HourlyUsage> {
     }
   }
 
-  // Calculate pace (extrapolated $/hr based on active time)
-  const now = Date.now();
+  // Calculate EWMA-smoothed pace
+  const pace = calculateEWMAPace(timestampedCosts, halfLifeMs, now);
+
+  // Calculate active time for reporting
   const activeMs = earliestTimestamp === Infinity ? 0 : now - earliestTimestamp;
   const activeMinutes = activeMs / (1000 * 60);
-  const activeHours = activeMs / (1000 * 60 * 60);
-
-  // Pace: extrapolate to hourly rate, with minimum 1 minute to avoid division issues
-  const pace = activeHours > 0 ? totalCost / Math.max(activeHours, 1 / 60) : 0;
 
   return {
     cost: totalCost,
