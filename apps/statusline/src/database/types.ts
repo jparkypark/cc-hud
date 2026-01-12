@@ -12,3 +12,21 @@ export interface DailySummary {
   models_used: string; // JSON array
   updated_at?: string;
 }
+
+/**
+ * Session status for menu bar app
+ */
+export type SessionStatus = 'working' | 'waiting' | 'unknown';
+
+/**
+ * Extended session data for menu bar sharing
+ */
+export interface HudSession {
+  session_id: string;
+  initial_cwd: string;
+  git_branch: string | null;
+  status: SessionStatus;
+  is_root_at_start: boolean;
+  first_seen_at: number;
+  last_seen_at: number;
+}

@@ -45,6 +45,8 @@ export class DatabaseClient {
         CREATE TABLE IF NOT EXISTS hud_sessions (
           session_id TEXT PRIMARY KEY,
           initial_cwd TEXT NOT NULL,
+          git_branch TEXT,
+          status TEXT DEFAULT 'unknown',
           is_root_at_start INTEGER NOT NULL,
           first_seen_at INTEGER NOT NULL,
           last_seen_at INTEGER NOT NULL
@@ -53,6 +55,15 @@ export class DatabaseClient {
     } catch (error) {
       console.error(`[cc-hud] Failed to create hud_sessions table: ${error}`);
     }
+
+    // Migration: add new columns if they don't exist (ignore errors)
+    try {
+      this.db.exec(`ALTER TABLE hud_sessions ADD COLUMN git_branch TEXT`);
+    } catch (_) { /* Column already exists */ }
+
+    try {
+      this.db.exec(`ALTER TABLE hud_sessions ADD COLUMN status TEXT DEFAULT 'unknown'`);
+    } catch (_) { /* Column already exists */ }
   }
 
   /**
