@@ -4,215 +4,260 @@ This document describes the technical implementation of cc-hud.
 
 ## Overview
 
-cc-hud is a command-line tool that:
-1. Receives JSON input from Claude Code via stdin
-2. Reads configuration from `~/.claude/cc-hud.json`
-3. Fetches usage data from ccusage library and Codex CLI
-4. Calculates EWMA-smoothed pace from transcript files
-5. Renders segments with powerline or text-mode styling
-6. Outputs a single line of ANSI-colored text to stdout
+cc-hud is a monorepo containing two applications:
+
+1. **Statusline** (TypeScript/Bun) - A command-line tool that renders a customizable status bar for Claude Code
+2. **Menu Bar App** (Swift/SwiftUI) - A native macOS app that displays all active Claude Code sessions
+
+Both applications share a SQLite database for session state.
 
 ## System Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│ Claude Code                                                 │
-│ ┌─────────────────────────────────────────────────────────┐ │
-│ │ Sends JSON via stdin                                    │ │
-│ │ { "cwd": "/path", "git": {...}, "session": {...} }      │ │
-│ └─────────────────────────────────────────────────────────┘ │
-└─────────────────────────┬───────────────────────────────────┘
-                          │
-                          ▼
-┌─────────────────────────────────────────────────────────────┐
-│ cc-hud (src/index.ts)                                       │
-│                                                             │
-│ ┌─────────────────┐  ┌─────────────────┐  ┌──────────────┐ │
-│ │ Config Parser   │  │ ccusage Library │  │ Codex CLI    │ │
-│ │ (config/)       │  │ (daily usage)   │  │ (via bunx)   │ │
-│ │                 │  │                 │  │              │ │
-│ │ ~/.claude/      │  │ JSONL           │  │ @ccusage/    │ │
-│ │ cc-hud.json     │  │ transcripts     │  │ codex        │ │
-│ └─────────────────┘  └─────────────────┘  └──────────────┘ │
-│          │                    │                  │          │
-│          └────────────────────┼──────────────────┘          │
-│                               ▼                             │
-│                    ┌──────────────────┐                     │
-│                    │ Segment System   │                     │
-│                    │ (segments/)      │                     │
-│                    │                  │                     │
-│                    │ - UsageSegment   │                     │
-│                    │ - PaceSegment    │                     │
-│                    │ - DirectorySegment│                    │
-│                    │ - GitSegment     │                     │
-│                    │ - PrSegment      │                     │
-│                    │ - TimeSegment    │                     │
-│                    │ - ThoughtsSegment│                     │
-│                    └──────────────────┘                     │
-│                               │                             │
-│                               ▼                             │
-│                    ┌──────────────────┐                     │
-│                    │ Powerline        │                     │
-│                    │ Renderer         │                     │
-│                    │ (renderer/)      │                     │
-│                    └──────────────────┘                     │
-│                               │                             │
-└───────────────────────────────┼─────────────────────────────┘
-                                ▼
-                  ANSI-colored string to stdout
-           "› repos/cc-hud | ⎇ main ✗ | Σ $240 today | ..."
+┌─────────────────────────────────────────────────────────────────────────┐
+│ Claude Code                                                             │
+│                                                                         │
+│  ┌──────────────────┐    ┌──────────────────┐    ┌──────────────────┐  │
+│  │ SessionStart     │    │ Notification     │    │ Stop             │  │
+│  │ Hook             │    │ Hook (idle)      │    │ Hook             │  │
+│  └────────┬─────────┘    └────────┬─────────┘    └────────┬─────────┘  │
+│           │                       │                       │             │
+└───────────┼───────────────────────┼───────────────────────┼─────────────┘
+            │                       │                       │
+            ▼                       ▼                       ▼
+     ┌──────────────────────────────────────────────────────────┐
+     │ Hook Scripts (hooks/)                                     │
+     │                                                           │
+     │  1. Write to SQLite (blocking)                            │
+     │  2. POST to HTTP (fire-and-forget)                        │
+     └─────────────────┬────────────────────────┬────────────────┘
+                       │                        │
+                       ▼                        ▼
+┌──────────────────────────────┐    ┌──────────────────────────────┐
+│ SQLite Database              │    │ Menu Bar App HTTP Server     │
+│ ~/.claude/statusline-usage.db│    │ localhost:19222              │
+│                              │    │                              │
+│ hud_sessions table           │    │ Receives real-time updates   │
+└──────────────────────────────┘    └──────────────────────────────┘
+            │                                    │
+            │                                    │
+            ▼                                    ▼
+┌──────────────────────────────┐    ┌──────────────────────────────┐
+│ Statusline (TypeScript)      │    │ Menu Bar App (Swift)         │
+│ apps/statusline/             │    │ apps/menubar/                │
+│                              │    │                              │
+│ Reads DB for session info    │    │ Reads DB on startup/refresh  │
+│ Renders status bar           │    │ Uses HTTP for instant updates│
+└──────────────────────────────┘    └──────────────────────────────┘
 ```
 
 ## Project Structure
 
 ```
 cc-hud/
-├── src/
-│   ├── index.ts              # Main entry point
-│   ├── segments/
-│   │   ├── base.ts           # Segment interface
-│   │   ├── usage.ts          # Daily cost (ccusage + Codex)
-│   │   ├── pace.ts           # EWMA hourly burn rate
-│   │   ├── directory.ts      # Current path display
-│   │   ├── git.ts            # Git repository status
-│   │   ├── git-utils.ts      # Git helper functions
-│   │   ├── pr.ts             # GitHub PR segment
-│   │   ├── pr-utils.ts       # PR helper functions
-│   │   ├── time.ts           # Current time display
-│   │   ├── thoughts.ts       # Random quotes/thoughts
-│   │   └── index.ts          # Segment registry
-│   ├── usage/
-│   │   └── hourly-calculator.ts  # EWMA pace calculation
-│   ├── config/
-│   │   ├── types.ts          # TypeScript interfaces
-│   │   ├── parser.ts         # Config file parser
-│   │   ├── validator.ts      # Config validation
-│   │   ├── defaults.ts       # Default configuration
-│   │   └── index.ts          # Config exports
-│   ├── database/
-│   │   ├── client.ts         # SQLite connection (legacy)
-│   │   └── index.ts          # Database exports
-│   └── renderer/
-│       ├── powerline.ts      # Powerline/text-mode rendering
-│       ├── separators.ts     # Separator character definitions
-│       └── index.ts          # Renderer exports
-├── docs/
-│   ├── DESIGN.md             # Design decisions
-│   └── ARCHITECTURE.md       # This file
-├── package.json
-├── tsconfig.json
-└── README.md
+├── apps/
+│   ├── statusline/               # TypeScript statusline app
+│   │   ├── src/
+│   │   │   ├── index.ts          # Main entry point
+│   │   │   ├── segments/         # Segment implementations
+│   │   │   │   ├── base.ts
+│   │   │   │   ├── usage.ts
+│   │   │   │   ├── pace.ts
+│   │   │   │   ├── directory.ts
+│   │   │   │   ├── git.ts
+│   │   │   │   ├── pr.ts
+│   │   │   │   ├── time.ts
+│   │   │   │   └── thoughts.ts
+│   │   │   ├── usage/
+│   │   │   │   └── hourly-calculator.ts
+│   │   │   ├── config/
+│   │   │   │   ├── types.ts
+│   │   │   │   ├── parser.ts
+│   │   │   │   └── defaults.ts
+│   │   │   ├── database/
+│   │   │   │   ├── client.ts
+│   │   │   │   └── types.ts
+│   │   │   └── renderer/
+│   │   │       ├── powerline.ts
+│   │   │       └── separators.ts
+│   │   ├── package.json
+│   │   └── tsconfig.json
+│   │
+│   └── menubar/                  # Swift menu bar app
+│       └── CCMenubar/
+│           └── CCMenubar/
+│               ├── CCMenubarApp.swift
+│               ├── Models/
+│               │   ├── Session.swift
+│               │   └── SessionEvent.swift
+│               ├── Services/
+│               │   ├── DatabaseClient.swift
+│               │   ├── SessionManager.swift
+│               │   └── HTTPServer.swift
+│               └── Views/
+│                   ├── MenuBarView.swift
+│                   └── SessionRowView.swift
+│
+├── hooks/                        # Claude Code hooks
+│   ├── lib.sh                    # Shared functions
+│   ├── session-start.sh          # SessionStart hook
+│   ├── session-update.sh         # Notification (idle_prompt) hook
+│   └── session-end.sh            # Stop hook
+│
+└── docs/
+    ├── DESIGN.md
+    ├── ARCHITECTURE.md
+    └── plans/
 ```
 
-## Core Components
+## Database Schema
 
-### 1. Main Entry Point (src/index.ts)
+Shared SQLite database at `~/.claude/statusline-usage.db`:
 
-```typescript
-#!/usr/bin/env bun
-
-async function main() {
-  // 1. Read stdin from Claude Code
-  const input = await readStdin();
-  const sessionData = JSON.parse(input);
-
-  // 2. Load and validate config
-  const config = await loadConfig();
-
-  // 3. Create segment instances
-  const segments = config.segments.map(segmentConfig =>
-    createSegment(segmentConfig)
-  );
-
-  // 4. Update async caches (usage, pace, etc.) in parallel
-  await Promise.all(
-    segments.map(async segment => {
-      if ('updateCache' in segment) {
-        await segment.updateCache();
-      }
-    })
-  );
-
-  // 5. Render all segments synchronously
-  const segmentDataList = segments.map(segment =>
-    segment.render(sessionData, db)
-  );
-
-  // 6. Apply powerline styling
-  const statusline = renderPowerline(segmentDataList, config.theme);
-
-  // 7. Output to stdout
-  console.log(statusline);
-}
+```sql
+CREATE TABLE hud_sessions (
+  session_id TEXT PRIMARY KEY,
+  initial_cwd TEXT NOT NULL,
+  git_branch TEXT,
+  status TEXT DEFAULT 'unknown',  -- 'working', 'waiting', 'unknown'
+  is_root_at_start INTEGER NOT NULL,
+  first_seen_at INTEGER NOT NULL,
+  last_seen_at INTEGER NOT NULL
+)
 ```
 
-### 2. Segment System
+## Component Details
 
-**Base Interface (src/segments/base.ts):**
+### 1. Hooks (hooks/)
+
+Shell scripts that Claude Code executes at lifecycle events.
+
+**lib.sh** - Shared functions:
+- `escape_sql()` - Escape single quotes for SQL injection prevention
+- `get_git_branch()` - Get current git branch for a directory
+- `db_upsert_session()` - Insert or update session in database
+- `db_delete_session()` - Remove session from database
+- `notify_menubar()` - POST session update to menu bar app
+
+**session-start.sh** - Called on SessionStart:
+```bash
+#!/bin/bash
+source "$(dirname "$0")/lib.sh"
+
+session_id="$CLAUDE_SESSION_ID"
+cwd="$CLAUDE_WORKING_DIRECTORY"
+git_branch=$(get_git_branch "$cwd")
+
+db_upsert_session "$session_id" "$cwd" "$git_branch" "working"
+notify_menubar "start" "$session_id" "$cwd" "$git_branch" "working"
+```
+
+**session-update.sh** - Called on Notification (idle_prompt):
+```bash
+#!/bin/bash
+source "$(dirname "$0")/lib.sh"
+
+# ... updates status to "waiting"
+```
+
+**session-end.sh** - Called on Stop:
+```bash
+#!/bin/bash
+source "$(dirname "$0")/lib.sh"
+
+# ... deletes session from database
+```
+
+### 2. Statusline (apps/statusline/)
+
+TypeScript application that renders the Claude Code status bar.
+
+**Data Flow:**
+1. Receives JSON from Claude Code via stdin
+2. Loads config from `~/.claude/cc-hud.json`
+3. Fetches usage data (ccusage + Codex CLI)
+4. Calculates EWMA pace from transcript files
+5. Renders segments with powerline styling
+6. Outputs ANSI-colored string to stdout
+
+**Key Components:**
+- **Segment System** - Modular segment types (usage, pace, git, etc.)
+- **EWMA Calculator** - Smoothed pace calculation with configurable half-life
+- **Powerline Renderer** - Supports background and text-only color modes
+
+### 3. Menu Bar App (apps/menubar/)
+
+Native macOS app built with SwiftUI.
+
+**Architecture:**
+- **CCMenubarApp.swift** - App entry point with MenuBarExtra
+- **Session.swift** - Data model for sessions
+- **SessionEvent.swift** - HTTP payload model
+- **DatabaseClient.swift** - SQLite3 C API wrapper
+- **SessionManager.swift** - @Observable state management
+- **HTTPServer.swift** - Network framework TCP listener
+- **MenuBarView.swift** - Main dropdown UI
+- **SessionRowView.swift** - Individual session row
+
+**Data Flow:**
+1. On startup: Read all sessions from SQLite database
+2. On HTTP POST: Parse JSON, update in-memory session array
+3. On Refresh click: Re-read database
+
+**HTTP Server:**
+- Listens on `localhost:19222`
+- Accepts POST to `/session-update`
+- Parses JSON payload into SessionEvent
+- Updates SessionManager state
+
+### 4. Data Synchronization
+
+The hooks write to both SQLite and HTTP:
+
+```
+Hook fires
+  1. Write to SQLite (blocking, waits for commit)
+  2. POST to HTTP with same data (fire-and-forget)
+
+Menu bar app
+  - Uses HTTP payload for immediate UI update
+  - Reads DB on startup and refresh (authoritative source)
+```
+
+This approach provides:
+- Real-time updates via HTTP push
+- Persistence via shared SQLite database
+- Graceful degradation if HTTP fails
+- Shared state between statusline and menu bar
+
+## Statusline Details
+
+### Segment System
+
+**Base Interface:**
 
 ```typescript
 export interface SegmentData {
   text: string;
-  colors: {
-    fg: string;
-    bg: string;
-  };
+  colors: { fg: string; bg: string; };
 }
 
 export abstract class Segment {
-  constructor(protected config: SegmentConfig) {}
-
   abstract render(input: ClaudeCodeInput, db: DatabaseClient): SegmentData;
-
-  // Optional async cache update
   async updateCache?(): Promise<void>;
 }
 ```
 
-**Usage Segment (src/segments/usage.ts):**
+**Available Segments:**
+- UsageSegment - Daily cost (Claude Code + Codex)
+- PaceSegment - EWMA hourly burn rate
+- DirectorySegment - Current working directory
+- GitSegment - Branch and status
+- PrSegment - GitHub PR number
+- TimeSegment - Current time
+- ThoughtsSegment - Random quotes
 
-Combines Claude Code and Codex CLI usage:
-
-```typescript
-export class UsageSegment extends Segment {
-  async updateCache(): Promise<void> {
-    const timezone = getSystemTimezone();
-
-    // Fetch both sources in parallel
-    const [claudeData, codexData] = await Promise.all([
-      this.loadTodayData(),      // ccusage library
-      loadCodexTodayData(timezone), // bunx @ccusage/codex
-    ]);
-
-    // Combine costs
-    this.cachedData = {
-      date: getTodayDate(),
-      cost: claudeData.cost + codexData.cost,
-      tokens: claudeData.inputTokens + claudeData.outputTokens +
-              codexData.inputTokens + codexData.outputTokens,
-    };
-  }
-}
-```
-
-**Pace Segment (src/segments/pace.ts):**
-
-Uses EWMA for smoothed burn rate:
-
-```typescript
-export class PaceSegment extends Segment {
-  async updateCache(): Promise<void> {
-    const hourlyUsage = await calculatePace({
-      halfLifeMinutes: this.config.display.halfLifeMinutes,
-    });
-    this.cachedPace = hourlyUsage.pace;
-  }
-}
-```
-
-### 3. EWMA Pace Calculation (src/usage/hourly-calculator.ts)
-
-The pace calculator reads JSONL transcript files and applies exponential decay weighting:
+### EWMA Pace Calculation
 
 ```typescript
 function calculateEWMAPace(
@@ -220,19 +265,14 @@ function calculateEWMAPace(
   halfLifeMs: number,
   now: number
 ): number {
-  if (costs.length === 0) return 0;
-
-  // Weight each cost by recency using exponential decay
   let weightedCostSum = 0;
 
   for (const { timestamp, cost } of costs) {
     const ageMs = now - timestamp;
-    // Weight = 2^(-age / halfLife), so recent ≈ 1, old → 0
     const weight = Math.pow(2, -ageMs / halfLifeMs);
     weightedCostSum += cost * weight;
   }
 
-  // Normalize by effective window (halfLife / ln(2))
   const effectiveWindowMs = halfLifeMs / Math.LN2;
   const effectiveWindowHours = effectiveWindowMs / (1000 * 60 * 60);
 
@@ -240,213 +280,116 @@ function calculateEWMAPace(
 }
 ```
 
-**Key features:**
-- Reads JSONL files from `~/.claude/projects/*/`
-- Filters entries within lookback window (6 × half-life)
-- Applies exponential decay weighting
-- Returns $/hr pace
+### Powerline Renderer
 
-### 4. Powerline Renderer (src/renderer/powerline.ts)
+Two color modes:
+- **Background mode** - Colored backgrounds with powerline separators
+- **Text mode** - Colored text only, pipe separators
 
-Supports two color modes:
+## Menu Bar App Details
 
-```typescript
-export function renderPowerline(
-  segments: SegmentData[],
-  theme: ThemeConfig
-): string {
-  const isTextMode = theme.colorMode === 'text';
-  const parts: string[] = [];
+### Session Model
 
-  for (let i = 0; i < segments.length; i++) {
-    const segment = segments[i];
+```swift
+struct Session: Identifiable {
+  let id: String
+  let cwd: String
+  let gitBranch: String?
+  let status: SessionStatus
+  let firstSeenAt: Date
+  let lastSeenAt: Date
 
-    if (isTextMode) {
-      // Text mode: colored text only
-      styledText = chalk.hex(segment.colors.fg)(segment.text);
-      separator = chalk.dim('|');
-    } else {
-      // Background mode: colored backgrounds with powerline separators
-      styledText = chalk
-        .hex(segment.colors.fg)
-        .bgHex(segment.colors.bg)(` ${segment.text} `);
-      separator = chalk
-        .hex(darkenColor(segment.colors.bg))
-        .bgHex(nextSegment.colors.bg)(SEPARATORS[style].right);
+  var projectName: String { /* basename of cwd */ }
+  var abbreviatedPath: String { /* ~/... format */ }
+  var timeSinceLastActivity: String { /* "now", "2m ago", etc. */ }
+}
+
+enum SessionStatus: String {
+  case working, waiting, unknown
+
+  var color: Color { /* green, yellow, gray */ }
+  var icon: String { /* filled/half circle */ }
+}
+```
+
+### HTTP Server
+
+Uses Network framework for lightweight TCP listening:
+
+```swift
+class HTTPServer {
+  private var listener: NWListener?
+  var onSessionEvent: ((SessionEvent) -> Void)?
+
+  func start() throws {
+    listener = try NWListener(using: .tcp, on: 19222)
+    listener?.newConnectionHandler = { connection in
+      self.handleConnection(connection)
     }
-
-    parts.push(styledText);
-    if (nextSegment) parts.push(separator);
+    listener?.start(queue: .main)
   }
 
-  // Join with spaces for word-wrap friendliness
-  return parts.join(' ');
-}
-```
-
-### 5. Configuration System (src/config/)
-
-**Type Definitions (src/config/types.ts):**
-
-```typescript
-export type SeparatorStyle = 'angled' | 'thin' | 'rounded' | 'flame' | 'slant' | 'backslant';
-export type ColorMode = 'background' | 'text';
-export type PathDisplayMode = 'name' | 'full' | 'project' | 'parent';
-
-export interface ThemeConfig {
-  powerline: boolean;
-  separatorStyle: SeparatorStyle;
-  colorMode: ColorMode;
-}
-
-export type SegmentConfig =
-  | UsageSegmentConfig
-  | PaceSegmentConfig
-  | DirectorySegmentConfig
-  | GitSegmentConfig
-  | PrSegmentConfig
-  | TimeSegmentConfig
-  | ThoughtsSegmentConfig;
-```
-
-## Data Flow
-
-### Input from Claude Code
-
-Claude Code sends JSON via stdin:
-
-```json
-{
-  "cwd": "/Users/josh/repos/cc-hud",
-  "git": {
-    "branch": "main",
-    "isDirty": true,
-    "ahead": 0,
-    "behind": 0
-  },
-  "session": {
-    "id": "session-123",
-    "model": "claude-opus-4-5"
+  private func handleConnection(_ connection: NWConnection) {
+    // Read HTTP request, parse JSON, call onSessionEvent
   }
 }
 ```
 
-### Usage Data Sources
+### UI Components
 
-**Claude Code (ccusage library):**
-- Reads JSONL transcripts from `~/.claude/projects/`
-- Uses `loadDailyUsageData()` with current timezone
-- Fetches latest pricing with `offline: false`
+**MenuBarView:**
+```swift
+struct MenuBarView: View {
+  @Environment(SessionManager.self) var sessionManager
 
-**Codex CLI:**
-- Runs `bunx @ccusage/codex@latest daily --json --since <today>`
-- Parses JSON output for today's totals
-- Gracefully fails if CLI unavailable
-
-### Pace Calculation
-
-1. Scan JSONL files modified within lookback window
-2. Parse entries with `message.usage` data
-3. Calculate cost per entry using model pricing table
-4. Apply EWMA weighting based on timestamp age
-5. Normalize by effective window for $/hr rate
-
-### Output
-
-Single line of ANSI-colored text with word-wrap-friendly spacing:
-
-```
-› repos/cc-hud | ⎇ main ✗ | ↑↰ #123 | Σ $240.76 today | △ $28.35/hr | ◔ 10:16pm | ◇ Quote here
+  var body: some View {
+    if sessionManager.sessions.isEmpty {
+      Text("No active sessions")
+    } else {
+      ForEach(sessionManager.sessions) { session in
+        SessionRowView(session: session)
+      }
+    }
+    Divider()
+    Button("Refresh") { sessionManager.refresh() }
+    Button("Quit") { NSApp.terminate(nil) }
+  }
+}
 ```
 
-## Performance Considerations
+**SessionRowView:**
+- Status indicator (colored circle)
+- Project name
+- Abbreviated path + git branch
+- Time since last activity
 
-### Target: <100ms total execution
+## Performance
 
-**Breakdown:**
+### Statusline Target: <100ms
+
 - Bun startup: ~3-5ms
-- Read stdin: ~1ms
-- Load config: ~1ms (file read)
-- ccusage fetch: ~50-100ms (parallel with Codex)
-- Codex CLI: ~50-100ms (parallel with ccusage)
-- Pace calculation: ~5-10ms (file I/O)
-- Render segments: ~1ms
-- Output: <1ms
+- Config load: ~1ms
+- Usage fetch: ~50-100ms (parallel)
+- Pace calculation: ~5-10ms
+- Render: ~1ms
 
-**Optimizations:**
-- Parallel async fetches (ccusage + Codex)
-- Direct JSONL file reading for pace (no external process)
-- Minimal dependencies (chalk only)
-- Space-joined output (simple string concatenation)
+### Menu Bar App
 
-### Memory Usage
-
-Target: <30MB
-
-- Bun runtime: ~10MB base
-- ccusage data: ~5MB
-- JSONL parsing: ~5MB (streaming)
-- chalk: ~1MB
+- Startup: Read DB once
+- HTTP updates: Instant UI refresh
+- Memory: <20MB typical
 
 ## Error Handling
 
-### Graceful Degradation
+### Hooks
+- SQLite errors: Logged to stderr, hook continues
+- HTTP errors: Silently ignored (fire-and-forget)
 
-If any component fails, cc-hud:
-1. Logs error to stderr (not stdout)
-2. Falls back to default or skips segment
-3. Never crashes Claude Code
+### Statusline
+- Missing config: Use defaults
+- ccusage errors: Show $0
+- Codex CLI missing: Silently skip
 
-**Examples:**
-
-```typescript
-// Codex CLI unavailable
-async function loadCodexTodayData() {
-  try {
-    const result = execSync('bunx @ccusage/codex...');
-    return JSON.parse(result);
-  } catch {
-    // Silently return zero - Codex is optional
-    return { cost: 0, inputTokens: 0, outputTokens: 0 };
-  }
-}
-
-// Config validation
-try {
-  validateConfig(userConfig);
-} catch (error) {
-  console.error('[cc-hud] Invalid config:', error.message);
-  return getDefaultConfig();
-}
-```
-
-## Testing Strategy
-
-### Manual Testing
-- Test with Claude Code in real environment
-- Verify all separator styles render correctly
-- Check text mode vs background mode
-- Test word-wrapping behavior
-- Verify EWMA decay over time
-
-### Performance Testing
-- Measure startup time with `time bunx cc-hud`
-- Profile slow segments individually
-- Monitor memory with `--inspect`
-
-## Summary
-
-cc-hud uses a modular architecture:
-- **Segment system** for extensibility (7 segment types)
-- **Bun + TypeScript** for speed and maintainability
-- **ccusage + Codex CLI** for comprehensive usage tracking
-- **EWMA algorithm** for intelligent pace calculation
-- **Dual color modes** (background powerline or text-only)
-- **Word-wrap friendly** output with space-joined parts
-
-The design prioritizes:
-1. **Accuracy** (combined usage sources, EWMA smoothing)
-2. **Performance** (<100ms execution time)
-3. **Reliability** (graceful error handling)
-4. **Extensibility** (easy to add segments)
-5. **User experience** (simple configuration, sensible defaults)
+### Menu Bar App
+- DB read errors: Show empty state
+- HTTP parse errors: Ignore malformed requests

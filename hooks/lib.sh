@@ -21,14 +21,14 @@ db_upsert_session() {
   local session_id="$1"
   local cwd="$2"
   local git_branch="$3"
-  local status="$4"
+  local session_status="$4"
   local now=$(date +%s)000  # milliseconds
 
   # Escape values to prevent SQL injection
   local safe_session_id=$(escape_sql "$session_id")
   local safe_cwd=$(escape_sql "$cwd")
   local safe_git_branch=$(escape_sql "$git_branch")
-  local safe_status=$(escape_sql "$status")
+  local safe_status=$(escape_sql "$session_status")
 
   sqlite3 "$DB_PATH" "
     INSERT INTO hud_sessions (session_id, initial_cwd, git_branch, status, is_root_at_start, first_seen_at, last_seen_at)
@@ -53,7 +53,7 @@ notify_menubar() {
   local session_id="$2"
   local cwd="$3"
   local git_branch="$4"
-  local status="$5"
+  local session_status="$5"
 
   # Use jq for proper JSON escaping
   local json=$(jq -n \
@@ -61,7 +61,7 @@ notify_menubar() {
     --arg session_id "$session_id" \
     --arg cwd "$cwd" \
     --arg git_branch "$git_branch" \
-    --arg status "$status" \
+    --arg status "$session_status" \
     '{event: $event, session_id: $session_id, cwd: $cwd, git_branch: $git_branch, status: $status}')
 
   (curl -s -X POST "$MENUBAR_URL/session-update" \

@@ -1,17 +1,12 @@
 # cc-hud
 
-A customizable heads-up display for Claude Code with live usage tracking, EWMA pace calculation, and powerline styling.
+A toolkit for monitoring Claude Code sessions: a customizable statusline with live usage tracking, and a native macOS menu bar app to see all active sessions at a glance.
 
 ![cc-hud screenshot](docs/images/screenshot.png)
 
-## Why cc-hud?
+## Features
 
-Existing Claude Code statusline packages don't offer enough customization:
-- Can't control what info is displayed within segments (only color theming)
-- Can't reorder segments
-- Limited or no access to live daily cost tracking
-
-cc-hud fixes this by giving you:
+### Statusline
 - **Granular display control** - Show/hide any piece of info per segment
 - **Flexible segment ordering** - Arrange segments however you want
 - **Live daily totals** - Accurate cost tracking (Claude Code + Codex CLI)
@@ -20,7 +15,30 @@ cc-hud fixes this by giving you:
 - **Multiple powerline styles** - 6 separator styles with automatic color compensation
 - **7 segment types** - Usage, pace, directory, git, PR, time, and thoughts
 
-## Installation
+### Menu Bar App (macOS)
+- **See all sessions** - Monitor 3-5+ concurrent Claude Code sessions
+- **Status indicators** - Green (waiting for input), Yellow (working)
+- **Session metadata** - Project name, path, git branch, time since last activity
+- **Real-time updates** - Via Claude Code hooks
+
+## Project Structure
+
+```
+cc-hud/
+├── apps/
+│   ├── statusline/           # TypeScript statusline
+│   │   └── src/
+│   └── menubar/              # Swift menu bar app
+│       └── CCMenubar/
+├── hooks/                    # Claude Code hooks for session tracking
+│   ├── lib.sh
+│   ├── session-start.sh
+│   ├── session-update.sh
+│   └── session-end.sh
+└── docs/
+```
+
+## Statusline Installation
 
 ```bash
 bun install -g cc-hud
@@ -32,7 +50,7 @@ Or use without installing:
 bunx cc-hud
 ```
 
-## Quick Start
+### Quick Start
 
 1. Configure Claude Code to use cc-hud:
 
@@ -50,7 +68,58 @@ bunx cc-hud
 
 3. Restart Claude Code to see your new statusline!
 
-## Configuration
+## Menu Bar App Installation
+
+1. Open `apps/menubar/CCMenubar/CCMenubar.xcodeproj` in Xcode
+2. Build and run (Cmd+R)
+3. The app appears in your menu bar with a terminal icon
+
+### Enabling Session Tracking
+
+Add hooks to your Claude Code settings to track sessions:
+
+```json
+// ~/.claude/settings.json
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/path/to/cc-hud/hooks/session-start.sh"
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "idle_prompt",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/path/to/cc-hud/hooks/session-update.sh"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/path/to/cc-hud/hooks/session-end.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+Replace `/path/to/cc-hud` with your actual installation path.
+
+## Statusline Configuration
 
 Config file: `~/.claude/cc-hud.json`
 
@@ -117,7 +186,7 @@ Current working directory with flexible path display.
 
 | Option | Description |
 |--------|-------------|
-| `icon` | Show › symbol |
+| `icon` | Show > symbol |
 | `pathMode` | `"name"`, `"full"`, `"project"`, or `"parent"` |
 | `rootWarning` | Show warning when not in git project root |
 
@@ -126,18 +195,18 @@ Git repository status.
 
 | Option | Description |
 |--------|-------------|
-| `icon` | Show ⎇ symbol |
+| `icon` | Show branch symbol |
 | `branch` | Show current branch name |
-| `status` | Show ✓ (clean) or ✗ (dirty) |
-| `ahead` | Show commits ahead (↑N) |
-| `behind` | Show commits behind (↓N) |
+| `status` | Show clean/dirty indicator |
+| `ahead` | Show commits ahead |
+| `behind` | Show commits behind |
 
 ### PR
 GitHub pull request for current branch (uses `gh` CLI).
 
 | Option | Description |
 |--------|-------------|
-| `icon` | Show ↑↰ symbol |
+| `icon` | Show PR symbol |
 | `number` | Show PR number |
 
 ### Usage
@@ -145,7 +214,7 @@ Daily cost combining Claude Code and Codex CLI usage via [ccusage](https://githu
 
 | Option | Description |
 |--------|-------------|
-| `icon` | Show Σ symbol |
+| `icon` | Show sum symbol |
 | `cost` | Show daily cost in dollars |
 | `tokens` | Show total token count (K/M suffix) |
 | `period` | Label to show (e.g., "today") |
@@ -155,7 +224,7 @@ EWMA-smoothed hourly burn rate. Recent costs are weighted more heavily, and pace
 
 | Option | Description |
 |--------|-------------|
-| `icon` | Show △ symbol |
+| `icon` | Show delta symbol |
 | `period` | Label (currently only "hourly") |
 | `halfLifeMinutes` | EWMA half-life (default: 7, giving ~10 min effective window) |
 
@@ -169,7 +238,7 @@ Current time display.
 
 | Option | Description |
 |--------|-------------|
-| `icon` | Show ◔ symbol |
+| `icon` | Show clock symbol |
 | `format` | `"12h"` or `"24h"` |
 | `seconds` | Show seconds |
 
@@ -178,7 +247,7 @@ Random thoughts or inspirational quotes.
 
 | Option | Description |
 |--------|-------------|
-| `icon` | Show ✻ symbol |
+| `icon` | Show star symbol |
 | `quotes` | Wrap text in quote marks |
 | `customThoughts` | Array of custom thought strings |
 | `useApiQuotes` | Fetch quotes from zenquotes.io API |
@@ -198,15 +267,22 @@ Six powerline separator styles with automatic 10% color darkening to compensate 
 
 - [Design Decisions](docs/DESIGN.md) - Why we made the choices we did
 - [Architecture](docs/ARCHITECTURE.md) - Technical implementation details
+- [Menu Bar App Design](docs/plans/2026-01-12-menubar-app-design.md) - Menu bar app design document
 
 ## Requirements
 
+### Statusline
 - Bun 1.0+ (already installed if you use Claude Code)
 - Claude Code
 - Terminal with Unicode support
 - Any monospace font (icons use UTF-8 characters, not powerline glyphs)
 - Optional: Nerd Font for powerline separators in background color mode
 - Optional: `gh` CLI for PR segment
+
+### Menu Bar App
+- macOS 14.0+
+- Xcode 15+ (for building)
+- jq (for hook scripts): `brew install jq`
 
 ## License
 
