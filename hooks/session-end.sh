@@ -5,8 +5,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib.sh"
 
-# Read hook input from stdin (required by Claude Code hooks)
-input=$(cat)
+# Consume stdin (required by Claude Code hooks, but we don't need the content)
+cat > /dev/null
 
 # Parse session info from environment
 session_id="${CLAUDE_SESSION_ID:-unknown}"
