@@ -5,9 +5,11 @@
 import { readFileSync, existsSync } from 'fs';
 import { homedir } from 'os';
 import { join } from 'path';
-import type { Config } from './types';
+import type { Config, SegmentConfig, SegmentType, ThemeMode } from './types';
 import { DEFAULT_CONFIG } from './defaults';
 import { validateConfig } from './validator';
+import { detectSystemTheme } from './detect';
+import { getThemeColors, mergeThemeColors } from './themes';
 
 const CONFIG_PATH = join(homedir(), '.claude', 'cc-hud.json');
 
@@ -42,40 +44,96 @@ function deepMerge<T>(target: T, source: Partial<T>): T {
  * Load and parse config file
  */
 export function loadConfig(): Config {
+  let userConfig: Partial<Config> | undefined;
+
   // Check if config file exists
   if (!existsSync(CONFIG_PATH)) {
     console.error(
       `[cc-hud] Config file not found at ${CONFIG_PATH}, using defaults`
     );
-    return DEFAULT_CONFIG;
+    userConfig = undefined;
+  } else {
+    try {
+      // Read and parse config file
+      const content = readFileSync(CONFIG_PATH, 'utf-8');
+      userConfig = JSON.parse(content);
+
+      // Validate config
+      validateConfig(userConfig);
+    } catch (error) {
+      if (error instanceof SyntaxError) {
+        console.error(
+          `[cc-hud] Invalid JSON in config file: ${error.message}`
+        );
+      } else if (error instanceof Error) {
+        console.error(`[cc-hud] Config validation error: ${error.message}`);
+      } else {
+        console.error(`[cc-hud] Failed to load config: ${error}`);
+      }
+
+      console.error('[cc-hud] Falling back to default configuration');
+      userConfig = undefined;
+    }
   }
 
-  try {
-    // Read and parse config file
-    const content = readFileSync(CONFIG_PATH, 'utf-8');
-    const userConfig = JSON.parse(content);
+  // Merge with defaults (in case user config is partial)
+  const config = userConfig ? deepMerge(DEFAULT_CONFIG, userConfig) : DEFAULT_CONFIG;
 
-    // Validate config
-    validateConfig(userConfig);
+  // Resolve theme mode and apply theme colors
+  const resolvedTheme = resolveThemeMode(config.theme.themeMode);
+  const themedConfig = applyThemeColors(config, userConfig, resolvedTheme);
 
-    // Merge with defaults (in case user config is partial)
-    const config = deepMerge(DEFAULT_CONFIG, userConfig);
+  return themedConfig;
+}
 
-    return config;
-  } catch (error) {
-    if (error instanceof SyntaxError) {
-      console.error(
-        `[cc-hud] Invalid JSON in config file: ${error.message}`
-      );
-    } else if (error instanceof Error) {
-      console.error(`[cc-hud] Config validation error: ${error.message}`);
-    } else {
-      console.error(`[cc-hud] Failed to load config: ${error}`);
+/**
+ * Resolve 'auto' theme mode to actual light/dark value
+ */
+function resolveThemeMode(mode: ThemeMode): 'light' | 'dark' {
+  if (mode === 'auto') {
+    return detectSystemTheme();
+  }
+  return mode;
+}
+
+/**
+ * Apply theme colors to segments that don't have explicit user color overrides
+ */
+function applyThemeColors(
+  config: Config,
+  userConfig: Partial<Config> | undefined,
+  resolvedTheme: 'light' | 'dark'
+): Config {
+  // Get base theme colors and merge with user's custom theme overrides
+  const baseTheme = getThemeColors(resolvedTheme);
+  const userThemeOverrides = resolvedTheme === 'light'
+    ? userConfig?.lightTheme
+    : userConfig?.darkTheme;
+  const themeColors = mergeThemeColors(baseTheme, userThemeOverrides);
+
+  // Apply theme colors to each segment
+  const segments = config.segments.map((segment, index) => {
+    const segmentType = segment.type as SegmentType;
+    const themeSegmentColors = themeColors[segmentType];
+
+    // Check if user provided explicit color overrides in segments array
+    const userSegment = userConfig?.segments?.[index];
+    const userColors = userSegment?.colors;
+
+    if (!themeSegmentColors) {
+      return segment;
     }
 
-    console.error('[cc-hud] Falling back to default configuration');
-    return DEFAULT_CONFIG;
-  }
+    // Merge: theme colors <- user segment color overrides
+    const colors = {
+      fg: userColors?.fg ?? themeSegmentColors.fg,
+      bg: userColors?.bg ?? themeSegmentColors.bg,
+    };
+
+    return { ...segment, colors } as SegmentConfig;
+  });
+
+  return { ...config, segments };
 }
 
 /**

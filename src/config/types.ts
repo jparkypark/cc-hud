@@ -6,6 +6,8 @@ export type SeparatorStyle = 'angled' | 'thin' | 'rounded' | 'flame' | 'slant' |
 
 export type ColorMode = 'background' | 'text';
 
+export type ThemeMode = 'light' | 'dark' | 'auto';
+
 export interface SegmentColors {
   fg: string;
   bg: string;
@@ -18,6 +20,7 @@ export interface ThemeConfig {
   powerline: boolean;
   separatorStyle: SeparatorStyle;
   colorMode: ColorMode;  // 'background' = filled bg (default), 'text' = colored text only
+  themeMode: ThemeMode;  // 'auto' = detect from system, 'light'/'dark' = manual
 }
 
 // Usage segment
@@ -128,10 +131,17 @@ export type SegmentConfig =
   | PrSegmentConfig
   | TimeSegmentConfig;
 
+// Theme color overrides (partial - only specify segments you want to customize)
+export type SegmentType = 'directory' | 'git' | 'pr' | 'usage' | 'pace' | 'time' | 'thoughts';
+
+export type ThemeColorOverrides = Partial<Record<SegmentType, Partial<SegmentColors>>>;
+
 // Main config
 export interface Config {
   segments: SegmentConfig[];
   theme: ThemeConfig;
+  darkTheme?: ThemeColorOverrides;   // Custom dark theme colors
+  lightTheme?: ThemeColorOverrides;  // Custom light theme colors
 }
 
 // Input from Claude Code (via stdin)

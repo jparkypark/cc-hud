@@ -97,5 +97,6 @@ export const DEFAULT_CONFIG: Config = {
     powerline: true,
     separatorStyle: 'angled',
     colorMode: 'text',
+    themeMode: 'auto',
   },
 };

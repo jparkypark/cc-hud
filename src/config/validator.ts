@@ -2,7 +2,11 @@
  * Configuration validation
  */
 
-import type { Config, SeparatorStyle, ColorMode } from './types';
+import type { Config, SeparatorStyle, ColorMode, ThemeMode, SegmentType } from './types';
+
+const VALID_SEGMENT_TYPES: SegmentType[] = [
+  'directory', 'git', 'pr', 'usage', 'pace', 'time', 'thoughts'
+];
 
 const VALID_SEPARATOR_STYLES: SeparatorStyle[] = [
   'angled',
@@ -15,6 +19,8 @@ const VALID_SEPARATOR_STYLES: SeparatorStyle[] = [
 
 const VALID_COLOR_MODES: ColorMode[] = ['background', 'text'];
 
+const VALID_THEME_MODES: ThemeMode[] = ['light', 'dark', 'auto'];
+
 const HEX_COLOR_REGEX = /^#[0-9A-Fa-f]{6}$/;
 
 function isValidHexColor(color: string): boolean {
@@ -22,23 +28,19 @@ function isValidHexColor(color: string): boolean {
 }
 
 function validateSegmentColors(colors: any, segmentType: string): void {
+  // Colors are optional - themes provide defaults
   if (!colors) {
-    throw new Error(`Segment '${segmentType}' must have colors`);
+    return;
   }
 
-  if (!colors.fg || !colors.bg) {
-    throw new Error(
-      `Segment '${segmentType}' must have both fg and bg colors`
-    );
-  }
-
-  if (!isValidHexColor(colors.fg)) {
+  // If colors provided, validate format
+  if (colors.fg !== undefined && !isValidHexColor(colors.fg)) {
     throw new Error(
       `Segment '${segmentType}' has invalid fg color: ${colors.fg}. Must be #RRGGBB format.`
     );
   }
 
-  if (!isValidHexColor(colors.bg)) {
+  if (colors.bg !== undefined && !isValidHexColor(colors.bg)) {
     throw new Error(
       `Segment '${segmentType}' has invalid bg color: ${colors.bg}. Must be #RRGGBB format.`
     );
@@ -228,79 +230,129 @@ function validateTimeSegment(segment: any): void {
   validateSegmentColors(segment.colors, 'time');
 }
 
-export function validateConfig(config: any): asserts config is Config {
+/**
+ * Validate theme color overrides (darkTheme or lightTheme)
+ */
+function validateThemeColorOverrides(overrides: any, themeName: string): void {
+  if (typeof overrides !== 'object' || Array.isArray(overrides)) {
+    throw new Error(`${themeName} must be an object`);
+  }
+
+  for (const segmentType of Object.keys(overrides)) {
+    if (!VALID_SEGMENT_TYPES.includes(segmentType as SegmentType)) {
+      throw new Error(
+        `Invalid segment type '${segmentType}' in ${themeName}. Valid types: ${VALID_SEGMENT_TYPES.join(', ')}`
+      );
+    }
+
+    const colors = overrides[segmentType];
+    if (typeof colors !== 'object' || Array.isArray(colors)) {
+      throw new Error(`${themeName}.${segmentType} must be an object with fg and/or bg`);
+    }
+
+    if (colors.fg !== undefined && !isValidHexColor(colors.fg)) {
+      throw new Error(
+        `${themeName}.${segmentType}.fg has invalid color: ${colors.fg}. Must be #RRGGBB format.`
+      );
+    }
+
+    if (colors.bg !== undefined && !isValidHexColor(colors.bg)) {
+      throw new Error(
+        `${themeName}.${segmentType}.bg has invalid color: ${colors.bg}. Must be #RRGGBB format.`
+      );
+    }
+  }
+}
+
+/**
+ * Validate a partial or full config.
+ * Only validates fields that are present - missing fields will be filled from defaults.
+ */
+export function validateConfig(config: any): asserts config is Partial<Config> {
   if (!config) {
     throw new Error('Config cannot be null or undefined');
   }
 
-  // Validate segments array
-  if (!config.segments || !Array.isArray(config.segments)) {
-    throw new Error('Config must have a segments array');
-  }
-
-  if (config.segments.length === 0) {
-    throw new Error('Config must have at least one segment');
-  }
-
-  // Validate each segment
-  for (let i = 0; i < config.segments.length; i++) {
-    const segment = config.segments[i];
-
-    if (!segment.type) {
-      throw new Error(`Segment at index ${i} must have a type`);
+  // Validate segments array if present
+  if (config.segments !== undefined) {
+    if (!Array.isArray(config.segments)) {
+      throw new Error('Config segments must be an array');
     }
 
-    switch (segment.type) {
-      case 'usage':
-        validateUsageSegment(segment);
-        break;
-      case 'pace':
-        validatePaceSegment(segment);
-        break;
-      case 'directory':
-        validateDirectorySegment(segment);
-        break;
-      case 'git':
-        validateGitSegment(segment);
-        break;
-      case 'thoughts':
-        validateThoughtsSegment(segment);
-        break;
-      case 'pr':
-        validatePrSegment(segment);
-        break;
-      case 'time':
-        validateTimeSegment(segment);
-        break;
-      default:
-        throw new Error(
-          `Unknown segment type '${segment.type}' at index ${i}. Valid types: usage, pace, directory, git, thoughts, pr, time`
-        );
+    if (config.segments.length === 0) {
+      throw new Error('Config must have at least one segment');
+    }
+
+    // Validate each segment
+    for (let i = 0; i < config.segments.length; i++) {
+      const segment = config.segments[i];
+
+      if (!segment.type) {
+        throw new Error(`Segment at index ${i} must have a type`);
+      }
+
+      switch (segment.type) {
+        case 'usage':
+          validateUsageSegment(segment);
+          break;
+        case 'pace':
+          validatePaceSegment(segment);
+          break;
+        case 'directory':
+          validateDirectorySegment(segment);
+          break;
+        case 'git':
+          validateGitSegment(segment);
+          break;
+        case 'thoughts':
+          validateThoughtsSegment(segment);
+          break;
+        case 'pr':
+          validatePrSegment(segment);
+          break;
+        case 'time':
+          validateTimeSegment(segment);
+          break;
+        default:
+          throw new Error(
+            `Unknown segment type '${segment.type}' at index ${i}. Valid types: usage, pace, directory, git, thoughts, pr, time`
+          );
+      }
     }
   }
 
-  // Validate theme
-  if (!config.theme) {
-    throw new Error('Config must have a theme');
+  // Validate theme if present
+  if (config.theme !== undefined) {
+    if (config.theme.powerline !== undefined && typeof config.theme.powerline !== 'boolean') {
+      throw new Error('theme.powerline must be boolean');
+    }
+
+    if (config.theme.separatorStyle !== undefined && !VALID_SEPARATOR_STYLES.includes(config.theme.separatorStyle)) {
+      throw new Error(
+        `Invalid theme.separatorStyle: ${config.theme.separatorStyle}. Valid options: ${VALID_SEPARATOR_STYLES.join(', ')}`
+      );
+    }
+
+    if (config.theme.colorMode !== undefined && !VALID_COLOR_MODES.includes(config.theme.colorMode)) {
+      throw new Error(
+        `Invalid theme.colorMode: ${config.theme.colorMode}. Valid options: ${VALID_COLOR_MODES.join(', ')}`
+      );
+    }
+
+    if (config.theme.themeMode !== undefined && !VALID_THEME_MODES.includes(config.theme.themeMode)) {
+      throw new Error(
+        `Invalid theme.themeMode: ${config.theme.themeMode}. Valid options: ${VALID_THEME_MODES.join(', ')}`
+      );
+    }
   }
 
-  if (typeof config.theme.powerline !== 'boolean') {
-    throw new Error('theme.powerline must be boolean');
+  // Validate darkTheme color overrides if present
+  if (config.darkTheme !== undefined) {
+    validateThemeColorOverrides(config.darkTheme, 'darkTheme');
   }
 
-  if (!config.theme.separatorStyle) {
-    throw new Error('theme.separatorStyle is required');
-  }
-
-  if (!VALID_SEPARATOR_STYLES.includes(config.theme.separatorStyle)) {
-    throw new Error(
-      `Invalid theme.separatorStyle: ${config.theme.separatorStyle}. Valid options: ${VALID_SEPARATOR_STYLES.join(', ')}`
-    );
-  }
-
-  if (config.theme.colorMode !== undefined && !VALID_COLOR_MODES.includes(config.theme.colorMode)) {
-    throw new Error(
-      `Invalid theme.colorMode: ${config.theme.colorMode}. Valid options: ${VALID_COLOR_MODES.join(', ')}`
-    );
+  // Validate lightTheme color overrides if present
+  if (config.lightTheme !== undefined) {
+    validateThemeColorOverrides(config.lightTheme, 'lightTheme');
   }
 }
