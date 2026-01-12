@@ -2,81 +2,117 @@
 
 A toolkit for monitoring Claude Code sessions: a customizable statusline with live usage tracking, and a native macOS menu bar app to see all active sessions at a glance.
 
-![cc-hud screenshot](docs/images/screenshot.png)
+---
 
-## Features
+## Statusline
 
-### Statusline
-- **Granular display control** - Show/hide any piece of info per segment
-- **Flexible segment ordering** - Arrange segments however you want
+![Statusline screenshot](docs/images/screenshot.png)
+
+A customizable status bar for Claude Code with live cost tracking, EWMA pace calculation, and powerline styling.
+
+### Features
+
 - **Live daily totals** - Accurate cost tracking (Claude Code + Codex CLI)
 - **EWMA pace calculation** - Smoothed hourly burn rate with configurable half-life
-- **Full color customization** - Foreground, background, or text-only color modes
-- **Multiple powerline styles** - 6 separator styles with automatic color compensation
 - **7 segment types** - Usage, pace, directory, git, PR, time, and thoughts
+- **Light/dark theme** - Auto-detects system theme or set manually
+- **Full customization** - Colors, segments, separator styles
 
-### Menu Bar App (macOS)
-- **See all sessions** - Monitor 3-5+ concurrent Claude Code sessions
-- **Status indicators** - Green (waiting for input), Yellow (working)
-- **Session metadata** - Project name, path, git branch, time since last activity
-- **Real-time updates** - Via Claude Code hooks
+### Requirements
 
-## Project Structure
+- Bun 1.0+ (included with Claude Code)
+- Claude Code
+- Optional: `gh` CLI for PR segment
 
-```
-cc-hud/
-├── apps/
-│   ├── statusline/           # TypeScript statusline
-│   │   └── src/
-│   └── menubar/              # Swift menu bar app
-│       └── CCMenubar/
-├── hooks/                    # Claude Code hooks for session tracking
-│   ├── lib.sh
-│   ├── session-start.sh
-│   ├── session-update.sh
-│   └── session-end.sh
-└── docs/
-```
+### Installation
 
-## Statusline Installation
+For development/local use:
 
 ```bash
-bun install -g cc-hud
+git clone https://github.com/yourusername/cc-hud.git
+cd cc-hud
 ```
 
-Or use without installing:
-
-```bash
-bunx cc-hud
-```
-
-### Quick Start
-
-1. Configure Claude Code to use cc-hud:
+Configure Claude Code to use the statusline:
 
 ```json
 // ~/.claude/settings.json
 {
   "statusLine": {
     "type": "command",
-    "command": "bunx cc-hud"
+    "command": "bun /path/to/cc-hud/apps/statusline/src/index.ts"
   }
 }
 ```
 
-2. cc-hud works out of the box with sensible defaults. Optionally create `~/.claude/cc-hud.json` to customize.
+Replace `/path/to/cc-hud` with your clone location.
 
-3. Restart Claude Code to see your new statusline!
+### Quick Configuration
 
-## Menu Bar App Installation
+cc-hud works out of the box. To customize, create `~/.claude/cc-hud.json`:
 
-1. Open `apps/menubar/CCMenubar/CCMenubar.xcodeproj` in Xcode
-2. Build and run (Cmd+R)
-3. The app appears in your menu bar with a terminal icon
+```json
+{
+  "theme": {
+    "colorMode": "text",
+    "themeMode": "auto"
+  }
+}
+```
 
-### Enabling Session Tracking
+For full configuration options including all segments, colors, and themes, see [CONFIGURATION.md](docs/CONFIGURATION.md).
 
-The menu bar app uses Claude Code hooks to track session lifecycle events. Add the following to your `~/.claude/settings.json`:
+---
+
+## Menu Bar App (macOS)
+
+<!-- TODO: Add menu bar screenshot -->
+![Menu bar screenshot](docs/images/menubar-screenshot.png)
+
+A native macOS app that displays all active Claude Code sessions in your menu bar.
+
+### Features
+
+- **See all sessions** - Monitor 3-5+ concurrent Claude Code sessions
+- **Status indicators** - Green (waiting for input), Yellow (working)
+- **Session metadata** - Project name, path, git branch, time since last activity
+- **Real-time updates** - Via Claude Code hooks
+
+### Requirements
+
+- macOS 14.0+
+- Xcode 15+ (for building)
+- jq: `brew install jq`
+
+### Installation
+
+1. **Build the app:**
+   ```bash
+   cd /path/to/cc-hud/apps/menubar/CCMenubar
+   open CCMenubar.xcodeproj
+   ```
+   In Xcode: Product → Build (Cmd+B)
+
+2. **Copy to Applications (optional):**
+   ```bash
+   cp -r ~/Library/Developer/Xcode/DerivedData/CCMenubar-*/Build/Products/Debug/CCMenubar.app /Applications/
+   ```
+
+3. **Configure Claude Code hooks** (see below)
+
+4. **Launch the app** - A terminal icon appears in your menu bar
+
+### Launch at Login
+
+To start the menu bar app automatically:
+
+1. Open **System Settings → General → Login Items**
+2. Click **+** under "Open at Login"
+3. Select **CCMenubar.app** from Applications (or your build location)
+
+### Configuring Hooks
+
+The menu bar app uses Claude Code hooks to track sessions. Add to your `~/.claude/settings.json`:
 
 ```json
 {
@@ -116,220 +152,118 @@ The menu bar app uses Claude Code hooks to track session lifecycle events. Add t
 }
 ```
 
-**Setup steps:**
+**Setup checklist:**
 
-1. Replace `/path/to/cc-hud` with your actual clone location (e.g., `/Users/you/repos/cc-hud`)
-2. Merge the `hooks` section into your existing settings (don't replace the whole file)
-3. Install `jq` if not already installed: `brew install jq`
-4. Make sure hook scripts are executable: `chmod +x /path/to/cc-hud/hooks/*.sh`
+- [ ] Replace `/path/to/cc-hud` with your actual clone location
+- [ ] Merge into existing settings (don't replace the whole file)
+- [ ] Install jq: `brew install jq`
+- [ ] Make hooks executable: `chmod +x /path/to/cc-hud/hooks/*.sh`
 
 **What each hook does:**
 
 | Hook | Trigger | Action |
 |------|---------|--------|
-| `SessionStart` | Claude Code session starts | Registers session with "working" status |
-| `Notification` (idle_prompt) | Claude finishes responding | Updates status to "waiting" (green dot) |
-| `Stop` | Session ends | Removes session from menu bar |
+| `SessionStart` | Session starts | Registers session as "working" (yellow) |
+| `Notification` | Claude waiting for input | Updates to "waiting" (green) |
+| `Stop` | Session ends | Removes from menu bar |
 
-**Testing the hooks:**
+---
 
-```bash
-# Verify hooks are configured
-cat ~/.claude/settings.json | jq '.hooks'
+## Troubleshooting
 
-# Start a new Claude Code session in another terminal
-# It should appear in the menu bar dropdown
-```
+### Statusline not showing
 
-## Statusline Configuration
+1. **Check the path** - Verify the path in `settings.json` points to the correct location:
+   ```bash
+   ls /path/to/cc-hud/apps/statusline/src/index.ts
+   ```
 
-Config file: `~/.claude/cc-hud.json`
+2. **Test manually** - Run the statusline directly:
+   ```bash
+   echo '{}' | bun /path/to/cc-hud/apps/statusline/src/index.ts
+   ```
 
-```json
-{
-  "segments": [
-    {
-      "type": "directory",
-      "display": { "icon": true, "pathMode": "parent" },
-      "colors": { "fg": "#ff6666", "bg": "#ec4899" }
-    },
-    {
-      "type": "git",
-      "display": { "icon": true, "branch": true, "status": true },
-      "colors": { "fg": "#ffbd55", "bg": "#f97316" }
-    },
-    {
-      "type": "pr",
-      "display": { "icon": true, "number": true },
-      "colors": { "fg": "#ffff66", "bg": "#10b981" }
-    },
-    {
-      "type": "usage",
-      "display": { "icon": true, "cost": true, "tokens": false, "period": "today" },
-      "colors": { "fg": "#9de24f", "bg": "#3b82f6" }
-    },
-    {
-      "type": "pace",
-      "display": { "icon": true, "period": "hourly", "halfLifeMinutes": 7 },
-      "colors": { "fg": "#87cefa", "bg": "#9333ea" }
-    },
-    {
-      "type": "time",
-      "display": { "icon": true, "format": "12h", "seconds": false },
-      "colors": { "fg": "#c084fc", "bg": "#9333ea" }
-    },
-    {
-      "type": "thoughts",
-      "display": { "icon": true, "quotes": false },
-      "colors": { "fg": "#9ca3af", "bg": "#6b7280" },
-      "useApiQuotes": true
-    }
-  ],
-  "theme": {
-    "powerline": true,
-    "separatorStyle": "angled",
-    "colorMode": "text"
-  }
-}
-```
+3. **Check for errors** - Look at Claude Code's output for error messages
 
-### Theme Options
+### Menu bar app shows "No active sessions"
 
-- `powerline` - Enable powerline separators (default: true)
-- `separatorStyle` - Separator style: `angled`, `thin`, `rounded`, `flame`, `slant`, `backslant`
-- `colorMode` - Color mode:
-  - `"background"` - Colored backgrounds with powerline separators
-  - `"text"` - Colored text only, pipe separators (cleaner look)
-- `themeMode` - Light/dark theme:
-  - `"auto"` - Detect from system (default)
-  - `"light"` - Light theme colors
-  - `"dark"` - Dark theme colors
+1. **Hooks not configured** - Verify hooks are in your settings:
+   ```bash
+   cat ~/.claude/settings.json | jq '.hooks'
+   ```
 
-### Custom Theme Colors
+2. **Hooks not executable** - Fix permissions:
+   ```bash
+   chmod +x /path/to/cc-hud/hooks/*.sh
+   ```
 
-Override colors for light or dark themes separately:
+3. **jq not installed** - Install it:
+   ```bash
+   brew install jq
+   ```
 
-```json
-{
-  "theme": {
-    "themeMode": "auto"
-  },
-  "darkTheme": {
-    "usage": { "fg": "#00ff00" },
-    "git": { "fg": "#ff6600", "bg": "#333333" }
-  },
-  "lightTheme": {
-    "usage": { "fg": "#006600" }
-  }
-}
-```
+4. **Test hooks manually**:
+   ```bash
+   export CLAUDE_SESSION_ID="test-123"
+   export CLAUDE_WORKING_DIRECTORY="$(pwd)"
+   /path/to/cc-hud/hooks/session-start.sh
 
-Theme colors are applied as defaults - any colors specified directly in segment config take precedence.
+   # Check database
+   sqlite3 ~/.claude/statusline-usage.db "SELECT * FROM hud_sessions;"
 
-## Available Segments
+   # Clean up
+   sqlite3 ~/.claude/statusline-usage.db "DELETE FROM hud_sessions WHERE session_id='test-123';"
+   ```
 
-### Directory
-Current working directory with flexible path display.
+5. **Click Refresh** - The menu bar app may need a manual refresh
 
-| Option | Description |
-|--------|-------------|
-| `icon` | Show > symbol |
-| `pathMode` | `"name"`, `"full"`, `"project"`, or `"parent"` |
-| `rootWarning` | Show warning when not in git project root |
+### Menu bar app not receiving real-time updates
 
-### Git
-Git repository status.
+The app listens on `localhost:19222`. If updates aren't instant:
 
-| Option | Description |
-|--------|-------------|
-| `icon` | Show branch symbol |
-| `branch` | Show current branch name |
-| `status` | Show clean/dirty indicator |
-| `ahead` | Show commits ahead |
-| `behind` | Show commits behind |
+1. **Check if server is running**:
+   ```bash
+   lsof -i :19222
+   ```
 
-### PR
-GitHub pull request for current branch (uses `gh` CLI).
+2. **Test HTTP endpoint**:
+   ```bash
+   curl -X POST http://localhost:19222/session-update \
+     -H "Content-Type: application/json" \
+     -d '{"event":"update","session_id":"test","cwd":"/tmp","status":"waiting"}'
+   ```
 
-| Option | Description |
-|--------|-------------|
-| `icon` | Show PR symbol |
-| `number` | Show PR number |
+3. **Restart the app** - Quit and relaunch CCMenubar
 
-### Usage
-Daily cost combining Claude Code and Codex CLI usage via [ccusage](https://github.com/jparkerweb/ccusage).
+### Database errors
 
-| Option | Description |
-|--------|-------------|
-| `icon` | Show sum symbol |
-| `cost` | Show daily cost in dollars |
-| `tokens` | Show total token count (K/M suffix) |
-| `period` | Label to show (e.g., "today") |
+If you see SQLite errors:
 
-### Pace
-EWMA-smoothed hourly burn rate. Recent costs are weighted more heavily, and pace naturally decays when idle.
+1. **Check database exists**:
+   ```bash
+   ls -la ~/.claude/statusline-usage.db
+   ```
 
-| Option | Description |
-|--------|-------------|
-| `icon` | Show delta symbol |
-| `period` | Label (currently only "hourly") |
-| `halfLifeMinutes` | EWMA half-life (default: 7, giving ~10 min effective window) |
+2. **Verify schema**:
+   ```bash
+   sqlite3 ~/.claude/statusline-usage.db ".schema hud_sessions"
+   ```
 
-**How half-life works:**
-- Cost from 1 half-life ago: 50% weight
-- Cost from 2 half-lives ago: 25% weight
-- Cost from 3 half-lives ago: 12.5% weight
+3. **Reset database** (loses session history):
+   ```bash
+   rm ~/.claude/statusline-usage.db
+   # Restart Claude Code - it will recreate the database
+   ```
 
-### Time
-Current time display.
-
-| Option | Description |
-|--------|-------------|
-| `icon` | Show clock symbol |
-| `format` | `"12h"` or `"24h"` |
-| `seconds` | Show seconds |
-
-### Thoughts
-Random thoughts or inspirational quotes.
-
-| Option | Description |
-|--------|-------------|
-| `icon` | Show star symbol |
-| `quotes` | Wrap text in quote marks |
-| `customThoughts` | Array of custom thought strings |
-| `useApiQuotes` | Fetch quotes from zenquotes.io API |
-
-## Separator Styles
-
-Six powerline separator styles with automatic 10% color darkening to compensate for font rendering:
-
-- `angled` - Classic powerline chevrons (default)
-- `thin` - Subtle outlined separators
-- `rounded` - Smooth rounded transitions
-- `flame` - Decorative flame-style separators
-- `slant` - Forward-slanting diagonal
-- `backslant` - Backward-slanting diagonal
+---
 
 ## Documentation
 
-- [Design Decisions](docs/DESIGN.md) - Why we made the choices we did
+- [Configuration Guide](docs/CONFIGURATION.md) - Full statusline configuration options
 - [Architecture](docs/ARCHITECTURE.md) - Technical implementation details
-- [Menu Bar App Design](docs/plans/2026-01-12-menubar-app-design.md) - Menu bar app design document
+- [Design Decisions](docs/DESIGN.md) - Why we made the choices we did
 
-## Requirements
-
-### Statusline
-- Bun 1.0+ (already installed if you use Claude Code)
-- Claude Code
-- Terminal with Unicode support
-- Any monospace font (icons use UTF-8 characters, not powerline glyphs)
-- Optional: Nerd Font for powerline separators in background color mode
-- Optional: `gh` CLI for PR segment
-
-### Menu Bar App
-- macOS 14.0+
-- Xcode 15+ (for building)
-- jq (for hook scripts): `brew install jq`
+---
 
 ## License
 

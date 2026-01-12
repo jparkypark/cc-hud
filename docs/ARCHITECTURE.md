@@ -126,11 +126,48 @@ CREATE TABLE hud_sessions (
 )
 ```
 
+## Session Lifecycle
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           Session Lifecycle                                  │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+  User starts          Claude               User sends           Session
+  Claude Code          responds             message              ends
+       │                  │                    │                   │
+       ▼                  ▼                    ▼                   ▼
+  ┌─────────┐        ┌─────────┐         ┌─────────┐         ┌─────────┐
+  │SessionStart│      │Notification│       │ (no hook)│        │  Stop   │
+  │  Hook     │      │  Hook     │       │         │        │  Hook   │
+  └────┬──────┘      └────┬──────┘       └─────────┘        └────┬────┘
+       │                  │                                      │
+       ▼                  ▼                                      ▼
+  status=working     status=waiting                         DELETE row
+  (yellow dot)       (green dot)                            (disappears)
+
+  ───────────────────────────────────────────────────────────────────────────►
+                                  Time
+```
+
+**State transitions:**
+1. Session starts → `working` (yellow) - Claude is processing
+2. Claude responds, waits for input → `waiting` (green) - Ready for user
+3. User sends message → `working` (yellow) - Back to processing
+4. Session ends → Removed from menu bar
+
 ## Component Details
 
 ### 1. Hooks (hooks/)
 
 Shell scripts that Claude Code executes at lifecycle events.
+
+**Environment variables provided by Claude Code:**
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `CLAUDE_SESSION_ID` | Unique session identifier | `a1b2c3d4-e5f6-...` |
+| `CLAUDE_WORKING_DIRECTORY` | Session's working directory | `/Users/you/repos/project` |
 
 **lib.sh** - Shared functions:
 - `escape_sql()` - Escape single quotes for SQL injection prevention
@@ -157,7 +194,12 @@ notify_menubar "start" "$session_id" "$cwd" "$git_branch" "working"
 #!/bin/bash
 source "$(dirname "$0")/lib.sh"
 
-# ... updates status to "waiting"
+session_id="$CLAUDE_SESSION_ID"
+cwd="$CLAUDE_WORKING_DIRECTORY"
+git_branch=$(get_git_branch "$cwd")
+
+db_upsert_session "$session_id" "$cwd" "$git_branch" "waiting"
+notify_menubar "update" "$session_id" "$cwd" "$git_branch" "waiting"
 ```
 
 **session-end.sh** - Called on Stop:
@@ -165,7 +207,11 @@ source "$(dirname "$0")/lib.sh"
 #!/bin/bash
 source "$(dirname "$0")/lib.sh"
 
-# ... deletes session from database
+session_id="$CLAUDE_SESSION_ID"
+cwd="$CLAUDE_WORKING_DIRECTORY"
+
+db_delete_session "$session_id"
+notify_menubar "end" "$session_id" "$cwd" "" ""
 ```
 
 ### 2. Statusline (apps/statusline/)
