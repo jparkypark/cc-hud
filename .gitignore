@@ -18,6 +18,15 @@ npm-debug.log*
 *.swp
 *.swo
 
+# Xcode
+xcuserdata/
+*.xcuserstate
+DerivedData/
+build/
+*.ipa
+*.dSYM.zip
+*.dSYM
+
 # OS
 .DS_Store
 Thumbs.db
