@@ -1,11 +1,12 @@
 import Foundation
+import Observation
 
 /// Manages the state of all active Claude Code sessions.
 /// Observes the shared SQLite database and handles real-time HTTP event notifications.
-@MainActor
-class SessionManager: ObservableObject {
+@Observable
+class SessionManager {
     /// All currently active sessions, ordered by most recent activity.
-    @Published var sessions: [Session] = []
+    var sessions: [Session] = []
 
     /// Database client for reading session data.
     private let dbClient = DatabaseClient()
