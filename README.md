@@ -76,10 +76,9 @@ bunx cc-hud
 
 ### Enabling Session Tracking
 
-Add hooks to your Claude Code settings to track sessions:
+The menu bar app uses Claude Code hooks to track session lifecycle events. Add the following to your `~/.claude/settings.json`:
 
 ```json
-// ~/.claude/settings.json
 {
   "hooks": {
     "SessionStart": [
@@ -117,7 +116,30 @@ Add hooks to your Claude Code settings to track sessions:
 }
 ```
 
-Replace `/path/to/cc-hud` with your actual installation path.
+**Setup steps:**
+
+1. Replace `/path/to/cc-hud` with your actual clone location (e.g., `/Users/you/repos/cc-hud`)
+2. Merge the `hooks` section into your existing settings (don't replace the whole file)
+3. Install `jq` if not already installed: `brew install jq`
+4. Make sure hook scripts are executable: `chmod +x /path/to/cc-hud/hooks/*.sh`
+
+**What each hook does:**
+
+| Hook | Trigger | Action |
+|------|---------|--------|
+| `SessionStart` | Claude Code session starts | Registers session with "working" status |
+| `Notification` (idle_prompt) | Claude finishes responding | Updates status to "waiting" (green dot) |
+| `Stop` | Session ends | Removes session from menu bar |
+
+**Testing the hooks:**
+
+```bash
+# Verify hooks are configured
+cat ~/.claude/settings.json | jq '.hooks'
+
+# Start a new Claude Code session in another terminal
+# It should appear in the menu bar dropdown
+```
 
 ## Statusline Configuration
 
