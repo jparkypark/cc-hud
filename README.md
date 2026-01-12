@@ -178,6 +178,31 @@ Config file: `~/.claude/cc-hud.json`
 - `colorMode` - Color mode:
   - `"background"` - Colored backgrounds with powerline separators
   - `"text"` - Colored text only, pipe separators (cleaner look)
+- `themeMode` - Light/dark theme:
+  - `"auto"` - Detect from system (default)
+  - `"light"` - Light theme colors
+  - `"dark"` - Dark theme colors
+
+### Custom Theme Colors
+
+Override colors for light or dark themes separately:
+
+```json
+{
+  "theme": {
+    "themeMode": "auto"
+  },
+  "darkTheme": {
+    "usage": { "fg": "#00ff00" },
+    "git": { "fg": "#ff6600", "bg": "#333333" }
+  },
+  "lightTheme": {
+    "usage": { "fg": "#006600" }
+  }
+}
+```
+
+Theme colors are applied as defaults - any colors specified directly in segment config take precedence.
 
 ## Available Segments
 

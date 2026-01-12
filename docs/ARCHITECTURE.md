@@ -280,6 +280,25 @@ function calculateEWMAPace(
 }
 ```
 
+### Theme System
+
+The statusline supports automatic light/dark theme detection:
+
+**detect.ts** - System theme detection:
+- macOS: Reads `AppleInterfaceStyle` via `defaults` command
+- Linux: Uses `COLORFGBG` environment variable
+- Fallback: Defaults to dark theme
+
+**themes.ts** - Theme color definitions:
+- `DARK_THEME_COLORS` - Vibrant colors for dark backgrounds
+- `LIGHT_THEME_COLORS` - Adjusted colors for light backgrounds
+- `mergeThemeColors()` - Merges user overrides with base theme
+
+**Config options:**
+- `theme.themeMode`: 'auto' | 'light' | 'dark'
+- `darkTheme`: Per-segment color overrides for dark mode
+- `lightTheme`: Per-segment color overrides for light mode
+
 ### Powerline Renderer
 
 Two color modes:
