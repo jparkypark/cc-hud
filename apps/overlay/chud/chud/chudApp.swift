@@ -72,7 +72,7 @@ struct chudApp: App {
                 }
             )
         } label: {
-            Image(systemName: "terminal")
+            Image(systemName: "waveform")
         }
         .menuBarExtraStyle(.window)
     }
