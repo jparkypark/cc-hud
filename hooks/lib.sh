@@ -10,6 +10,26 @@ escape_sql() {
   echo "${1//\'/\'\'}"
 }
 
+# Extract session ID from CLAUDE_ENV_FILE or generate fallback from cwd
+# CLAUDE_ENV_FILE format: ~/.claude/session-env/<uuid>/hook-N.sh
+get_session_id() {
+  local cwd="$1"
+  local session_id=""
+
+  # Try to extract from CLAUDE_ENV_FILE
+  if [ -n "${CLAUDE_ENV_FILE:-}" ]; then
+    session_id=$(basename "$(dirname "$CLAUDE_ENV_FILE")" 2>/dev/null || true)
+  fi
+
+  # Validate: must be a UUID-like string (not ".", "session-env", empty, etc.)
+  if [[ ! "$session_id" =~ ^[a-f0-9-]{36}$ ]]; then
+    # Fallback: generate ID from cwd (similar to discovery but with "hook-" prefix)
+    session_id="hook-$(echo "$cwd" | md5 | cut -c1-16)"
+  fi
+
+  echo "$session_id"
+}
+
 # Get git branch for a directory
 get_git_branch() {
   local dir="$1"
@@ -30,8 +50,13 @@ db_upsert_session() {
   local safe_git_branch=$(escape_sql "$git_branch")
   local safe_status=$(escape_sql "$session_status")
 
-  # If this is a real session (not discovered), remove any discovered placeholder for same cwd
-  if [[ "$session_id" != discovered-* ]]; then
+  # Clean up placeholder sessions for same cwd based on priority:
+  # Real UUID > hook- fallback > discovered-
+  if [[ "$session_id" =~ ^[a-f0-9-]{36}$ ]]; then
+    # Real UUID: clean up both hook- and discovered-
+    sqlite3 "$DB_PATH" "DELETE FROM hud_sessions WHERE initial_cwd = '$safe_cwd' AND (session_id LIKE 'discovered-%' OR session_id LIKE 'hook-%');"
+  elif [[ "$session_id" == hook-* ]]; then
+    # Hook fallback: clean up discovered- only
     sqlite3 "$DB_PATH" "DELETE FROM hud_sessions WHERE initial_cwd = '$safe_cwd' AND session_id LIKE 'discovered-%';"
   fi
 

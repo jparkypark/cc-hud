@@ -20,6 +20,11 @@ for pid in $(ps aux | grep "[c]laude" | grep -v "Claude.app" | awk '{print $2}')
   recent=$(ls -t "$project_path"/*.jsonl 2>/dev/null | head -1)
   [ -z "$recent" ] && continue
 
+  # Skip if a non-discovered session already exists for this cwd
+  safe_cwd=$(escape_sql "$cwd")
+  existing=$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM hud_sessions WHERE initial_cwd = '$safe_cwd' AND session_id NOT LIKE 'discovered-%' AND session_id NOT LIKE 'hook-%';")
+  [ "$existing" -gt 0 ] && continue
+
   # Use a discoverable session ID based on cwd (will be replaced when hooks fire)
   session_id="discovered-$(echo "$cwd" | md5 | cut -c1-16)"
 
