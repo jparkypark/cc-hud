@@ -9,8 +9,9 @@ source "$SCRIPT_DIR/lib.sh"
 cat > /dev/null
 
 # Parse session info from environment
-session_id="${CLAUDE_SESSION_ID:-unknown}"
-cwd="${CLAUDE_WORKING_DIRECTORY:-$(pwd)}"
+# Session ID is extracted from CLAUDE_ENV_FILE path (e.g., .../session-env/<uuid>/hook-0.sh)
+session_id=$(basename "$(dirname "${CLAUDE_ENV_FILE:-}")" 2>/dev/null || echo "unknown")
+cwd="${CLAUDE_PROJECT_DIR:-$(pwd)}"
 git_branch=$(get_git_branch "$cwd")
 status="working"
 
