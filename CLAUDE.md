@@ -10,9 +10,11 @@ Both share SQLite at `~/.claude/statusline-usage.db`.
 ## Commands
 
 ```bash
-just install              # Install both
-just install menubar      # Build + install to /Applications + relaunch
-just install statusline   # Install dependencies
+mise run install                      # Install both
+mise run install menubar              # Build + install to /Applications + relaunch
+mise run install menubar --autostart  # Install + enable launch on login
+mise run install statusline           # Install dependencies
+mise run autostart [enable|disable|status]  # Manage auto-start
 ```
 
 ## Key Files
@@ -21,4 +23,4 @@ just install statusline   # Install dependencies
 - Menubar entry: `apps/menubar/CCMenubar/CCMenubar/CCMenubarApp.swift`
 - Hooks: `hooks/*.sh` (write to SQLite + POST to menubar HTTP server on :19222)
 - Statusline config: `~/.claude/cc-hud.json`
-- Menubar config: `~/.claude/cc-hud-menubar.json` (written by `just install menubar`)
+- Menubar config: `~/.claude/cc-hud-menubar.json` (written by `mise run install menubar`)
