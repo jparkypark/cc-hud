@@ -20,17 +20,14 @@ for pid in $(ps aux | grep "[c]laude" | grep -v "Claude.app" | awk '{print $2}')
   recent=$(ls -t "$project_path"/*.jsonl 2>/dev/null | head -1)
   [ -z "$recent" ] && continue
 
-  # Extract session ID from filename
-  session_id=$(basename "$recent" .jsonl)
-
-  # Skip agent transcripts (they have different naming)
-  [[ "$session_id" == agent-* ]] && continue
+  # Use a discoverable session ID based on cwd (will be replaced when hooks fire)
+  session_id="discovered-$(echo "$cwd" | md5 | cut -c1-16)"
 
   # Get git branch
   git_branch=$(get_git_branch "$cwd")
 
-  # Register session with unknown status (hooks will correct it)
-  db_upsert_session "$session_id" "$cwd" "$git_branch" "unknown"
+  # Register as discovered (will be replaced when hooks fire with real session ID)
+  db_upsert_session "$session_id" "$cwd" "$git_branch" "discovered"
 done
 
 exit 0

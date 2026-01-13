@@ -3,6 +3,7 @@ import Foundation
 enum SessionStatus: String, Codable {
     case working
     case waiting
+    case discovered  // Pre-existing session found by discovery, not yet confirmed by hooks
     case unknown
 }
 

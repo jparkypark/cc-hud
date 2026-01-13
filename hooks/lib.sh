@@ -30,6 +30,11 @@ db_upsert_session() {
   local safe_git_branch=$(escape_sql "$git_branch")
   local safe_status=$(escape_sql "$session_status")
 
+  # If this is a real session (not discovered), remove any discovered placeholder for same cwd
+  if [[ "$session_id" != discovered-* ]]; then
+    sqlite3 "$DB_PATH" "DELETE FROM hud_sessions WHERE initial_cwd = '$safe_cwd' AND session_id LIKE 'discovered-%';"
+  fi
+
   sqlite3 "$DB_PATH" "
     INSERT INTO hud_sessions (session_id, initial_cwd, git_branch, status, is_root_at_start, first_seen_at, last_seen_at)
     VALUES ('$safe_session_id', '$safe_cwd', '$safe_git_branch', '$safe_status', 0, $now, $now)

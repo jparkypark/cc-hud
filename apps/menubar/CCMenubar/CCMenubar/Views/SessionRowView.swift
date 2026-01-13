@@ -9,6 +9,8 @@ struct SessionRowView: View {
             return .green
         case .working:
             return .yellow
+        case .discovered:
+            return .gray
         case .unknown:
             return .gray
         }
@@ -20,6 +22,8 @@ struct SessionRowView: View {
             return "●"
         case .working:
             return "◐"
+        case .discovered:
+            return "◌"  // Dotted circle for discovered sessions
         case .unknown:
             return "○"
         }
