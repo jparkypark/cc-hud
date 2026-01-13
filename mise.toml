@@ -1,0 +1,132 @@
+# cc-hud mise configuration
+
+[tasks.install]
+description = "Install components"
+usage = '''
+arg "[component]" help="Component to install" default="all" { choices "all" "menubar" "statusline" }
+flag "-a --autostart" help="Enable auto-start on login (menubar only)"
+'''
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+
+COMPONENT="${usage_component:-all}"
+AUTOSTART="${usage_autostart:-false}"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+install_statusline() {
+    echo "Installing statusline dependencies..."
+    cd "$ROOT_DIR/apps/statusline" && bun install
+    echo "Statusline installed."
+    echo ""
+    echo "Configure Claude Code by adding to ~/.claude/settings.json:"
+    echo '  "statusLine": {'
+    echo '    "type": "command",'
+    echo "    \"command\": \"bun $ROOT_DIR/apps/statusline/src/index.ts\""
+    echo '  }'
+}
+
+install_menubar() {
+    echo "Writing menubar config..."
+    echo "{\"hooksDir\": \"$ROOT_DIR/hooks\"}" > ~/.claude/cc-hud-menubar.json
+    echo "Building CCMenubar..."
+    xcodebuild -project "$ROOT_DIR/apps/menubar/CCMenubar/CCMenubar.xcodeproj" \\
+        -scheme CCMenubar \\
+        -configuration Debug \\
+        build \\
+        -quiet
+    echo "Stopping existing CCMenubar if running..."
+    pkill -x CCMenubar 2>/dev/null || true
+    echo "Installing to /Applications..."
+    cp -r ~/Library/Developer/Xcode/DerivedData/CCMenubar-*/Build/Products/Debug/CCMenubar.app /Applications/
+    echo "Launching CCMenubar..."
+    open /Applications/CCMenubar.app
+    echo "Done. CCMenubar installed and running."
+}
+
+enable_autostart() {
+    PLIST=~/Library/LaunchAgents/com.cc-hud.menubar.plist
+    mkdir -p ~/Library/LaunchAgents
+    /usr/libexec/PlistBuddy -c "Clear dict" "$PLIST" 2>/dev/null || true
+    /usr/libexec/PlistBuddy -c "Add :Label string com.cc-hud.menubar" "$PLIST"
+    /usr/libexec/PlistBuddy -c "Add :ProgramArguments array" "$PLIST"
+    /usr/libexec/PlistBuddy -c "Add :ProgramArguments:0 string /usr/bin/open" "$PLIST"
+    /usr/libexec/PlistBuddy -c "Add :ProgramArguments:1 string -a" "$PLIST"
+    /usr/libexec/PlistBuddy -c "Add :ProgramArguments:2 string /Applications/CCMenubar.app" "$PLIST"
+    /usr/libexec/PlistBuddy -c "Add :RunAtLoad bool true" "$PLIST"
+    /usr/libexec/PlistBuddy -c "Add :KeepAlive bool false" "$PLIST"
+    launchctl load "$PLIST" 2>/dev/null || true
+    echo "Auto-start enabled. CCMenubar will launch on login."
+}
+
+case "$COMPONENT" in
+    all)
+        install_statusline
+        echo ""
+        install_menubar
+        if [ "$AUTOSTART" = "true" ]; then
+            enable_autostart
+        else
+            echo ""
+            echo "To launch automatically on login: mise run install --autostart"
+        fi
+        ;;
+    menubar)
+        install_menubar
+        if [ "$AUTOSTART" = "true" ]; then
+            enable_autostart
+        else
+            echo ""
+            echo "To launch automatically on login: mise run install menubar --autostart"
+        fi
+        ;;
+    statusline)
+        install_statusline
+        ;;
+esac
+"""
+
+[tasks.autostart]
+description = "Manage menubar auto-start on login"
+usage = '''
+arg "[action]" help="Action to perform" default="enable" { choices "enable" "disable" "status" }
+'''
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+
+ACTION="${usage_action:-enable}"
+PLIST=~/Library/LaunchAgents/com.cc-hud.menubar.plist
+
+case "$ACTION" in
+    enable)
+        mkdir -p ~/Library/LaunchAgents
+        /usr/libexec/PlistBuddy -c "Clear dict" "$PLIST" 2>/dev/null || true
+        /usr/libexec/PlistBuddy -c "Add :Label string com.cc-hud.menubar" "$PLIST"
+        /usr/libexec/PlistBuddy -c "Add :ProgramArguments array" "$PLIST"
+        /usr/libexec/PlistBuddy -c "Add :ProgramArguments:0 string /usr/bin/open" "$PLIST"
+        /usr/libexec/PlistBuddy -c "Add :ProgramArguments:1 string -a" "$PLIST"
+        /usr/libexec/PlistBuddy -c "Add :ProgramArguments:2 string /Applications/CCMenubar.app" "$PLIST"
+        /usr/libexec/PlistBuddy -c "Add :RunAtLoad bool true" "$PLIST"
+        /usr/libexec/PlistBuddy -c "Add :KeepAlive bool false" "$PLIST"
+        launchctl load "$PLIST" 2>/dev/null || true
+        echo "Auto-start enabled. CCMenubar will launch on login."
+        ;;
+    disable)
+        if [ -f "$PLIST" ]; then
+            launchctl unload "$PLIST" 2>/dev/null || true
+            rm "$PLIST"
+            echo "Auto-start disabled."
+        else
+            echo "Auto-start was not enabled."
+        fi
+        ;;
+    status)
+        if [ -f "$PLIST" ]; then
+            echo "Auto-start is enabled."
+        else
+            echo "Auto-start is disabled."
+        fi
+        ;;
+esac
+"""
