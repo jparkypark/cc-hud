@@ -20,18 +20,27 @@ struct MenuBarView: View {
                     .padding()
             } else {
                 ForEach(groupedSessions, id: \.parent) { group in
-                    // Section header
-                    Text(group.parent)
-                        .font(.system(size: 10, design: .monospaced))
-                        .foregroundColor(.secondary)
-                        .padding(.horizontal, 12)
-                        .padding(.top, 8)
-                        .padding(.bottom, 4)
+                    VStack(alignment: .leading, spacing: 0) {
+                        // Section header
+                        Text(group.parent)
+                            .font(.system(size: 10, weight: .medium, design: .monospaced))
+                            .foregroundColor(.secondary)
+                            .padding(.horizontal, 8)
+                            .padding(.top, 6)
+                            .padding(.bottom, 4)
 
-                    // Sessions in this group
-                    ForEach(group.sessions) { session in
-                        SessionRowView(session: session)
+                        // Sessions in this group
+                        ForEach(group.sessions) { session in
+                            SessionRowView(session: session)
+                        }
+                        .padding(.bottom, 4)
                     }
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(Color.primary.opacity(0.05))
+                    )
+                    .padding(.horizontal, 8)
+                    .padding(.top, 6)
                 }
             }
 
