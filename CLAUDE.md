@@ -14,6 +14,7 @@ mise run install                      # Install both
 mise run install menubar              # Build + install to /Applications + relaunch
 mise run install menubar --autostart  # Install + enable launch on login
 mise run install statusline           # Install dependencies
+mise run configure                    # Configure Claude Code to use statusline
 mise run autostart [enable|disable|status]  # Manage auto-start
 ```
 
