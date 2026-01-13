@@ -5,12 +5,16 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib.sh"
 
+# Debug: log all CLAUDE env vars
+env | grep -i claude > /tmp/cc-hud-debug.log 2>&1 || true
+echo "PWD: $(pwd)" >> /tmp/cc-hud-debug.log
+
 # Consume stdin (required by Claude Code hooks, but we don't need the content)
 cat > /dev/null
 
 # Parse session info from environment
 session_id="${CLAUDE_SESSION_ID:-unknown}"
-cwd="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+cwd="${CLAUDE_WORKING_DIRECTORY:-$(pwd)}"
 git_branch=$(get_git_branch "$cwd")
 status="working"
 

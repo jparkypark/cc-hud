@@ -10,7 +10,7 @@ cat > /dev/null
 
 # Parse session info from environment
 session_id="${CLAUDE_SESSION_ID:-unknown}"
-cwd="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+cwd="${CLAUDE_WORKING_DIRECTORY:-$(pwd)}"
 
 # 1. Delete from database (blocking)
 db_delete_session "$session_id"

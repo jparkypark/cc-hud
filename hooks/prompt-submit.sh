@@ -10,7 +10,7 @@ cat > /dev/null
 
 # Parse session info from environment
 session_id="${CLAUDE_SESSION_ID:-unknown}"
-cwd="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+cwd="${CLAUDE_WORKING_DIRECTORY:-$(pwd)}"
 git_branch=$(get_git_branch "$cwd")
 status="working"
 
