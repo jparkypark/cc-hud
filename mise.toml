@@ -6,13 +6,14 @@ usage = '''
 arg "[component]" help="Component to install" default="all" { choices "all" "menubar" "statusline" }
 flag "-a --autostart" help="Enable auto-start on login (menubar only)"
 '''
+dir = "{{config_root}}"
 run = """
 #!/usr/bin/env bash
 set -euo pipefail
 
 COMPONENT="${usage_component:-all}"
 AUTOSTART="${usage_autostart:-false}"
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(pwd)"
 
 install_statusline() {
     echo "Installing statusline dependencies..."
@@ -84,11 +85,12 @@ esac
 
 [tasks.configure]
 description = "Configure Claude Code to use cc-hud statusline"
+dir = "{{config_root}}"
 run = """
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(pwd)"
 SETTINGS_FILE="$HOME/.claude/settings.json"
 STATUSLINE_CMD="bun $ROOT_DIR/apps/statusline/src/index.ts"
 

@@ -30,6 +30,13 @@ struct Session: Identifiable, Codable {
         return components.suffix(2).joined(separator: "/")
     }
 
+    /// Parent directory for grouping (e.g., "~/repos" from "~/repos/cc-hud")
+    var parentDirectory: String {
+        let url = URL(fileURLWithPath: cwd)
+        let parent = url.deletingLastPathComponent().path
+        return parent.replacingOccurrences(of: NSHomeDirectory(), with: "~")
+    }
+
     var timeSinceLastActivity: String {
         let interval = Date().timeIntervalSince(lastSeenAt)
         if interval < 60 {

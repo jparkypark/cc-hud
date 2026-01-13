@@ -3,6 +3,14 @@ import SwiftUI
 struct MenuBarView: View {
     var sessionManager: SessionManager
 
+    /// Sessions grouped by parent directory, sorted alphabetically
+    private var groupedSessions: [(parent: String, sessions: [Session])] {
+        let grouped = Dictionary(grouping: sessionManager.sessions) { $0.parentDirectory }
+        return grouped
+            .map { (parent: $0.key, sessions: $0.value.sorted { $0.projectName < $1.projectName }) }
+            .sorted { $0.parent < $1.parent }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             if sessionManager.sessions.isEmpty {
@@ -11,8 +19,19 @@ struct MenuBarView: View {
                     .foregroundColor(.secondary)
                     .padding()
             } else {
-                ForEach(sessionManager.sessions) { session in
-                    SessionRowView(session: session)
+                ForEach(groupedSessions, id: \.parent) { group in
+                    // Section header
+                    Text(group.parent)
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundColor(.secondary)
+                        .padding(.horizontal, 12)
+                        .padding(.top, 8)
+                        .padding(.bottom, 4)
+
+                    // Sessions in this group
+                    ForEach(group.sessions) { session in
+                        SessionRowView(session: session)
+                    }
                 }
             }
 
