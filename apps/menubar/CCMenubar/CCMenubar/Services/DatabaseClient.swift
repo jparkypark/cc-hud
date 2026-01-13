@@ -38,8 +38,7 @@ class DatabaseClient {
 
         var sessions: [Session] = []
         let query = """
-            SELECT session_id, initial_cwd, git_branch, status,
-                   is_root_at_start, first_seen_at, last_seen_at
+            SELECT cwd, git_branch, status, first_seen_at, last_seen_at
             FROM hud_sessions
             ORDER BY last_seen_at DESC
         """
@@ -52,37 +51,32 @@ class DatabaseClient {
         defer { sqlite3_finalize(statement) }
 
         while sqlite3_step(statement) == SQLITE_ROW {
-            // Column 0: session_id (TEXT NOT NULL)
-            let sessionId = String(cString: sqlite3_column_text(statement, 0))
+            // Column 0: cwd (TEXT PRIMARY KEY)
+            let cwd = String(cString: sqlite3_column_text(statement, 0))
 
-            // Column 1: initial_cwd (TEXT NOT NULL)
-            let cwd = String(cString: sqlite3_column_text(statement, 1))
-
-            // Column 2: git_branch (TEXT, can be NULL)
+            // Column 1: git_branch (TEXT, can be NULL)
             let gitBranch: String?
-            if let gitBranchPtr = sqlite3_column_text(statement, 2) {
+            if let gitBranchPtr = sqlite3_column_text(statement, 1) {
                 gitBranch = String(cString: gitBranchPtr)
             } else {
                 gitBranch = nil
             }
 
-            // Column 3: status (TEXT, can be NULL, defaults to "unknown")
+            // Column 2: status (TEXT, defaults to "unknown")
             let status: String
-            if let statusPtr = sqlite3_column_text(statement, 3) {
+            if let statusPtr = sqlite3_column_text(statement, 2) {
                 status = String(cString: statusPtr)
             } else {
                 status = "unknown"
             }
 
-            // Column 4: is_root_at_start (INTEGER NOT NULL) - not used in Session model
-            // Column 5: first_seen_at (INTEGER NOT NULL)
-            let firstSeenAt = sqlite3_column_int64(statement, 5)
+            // Column 3: first_seen_at (INTEGER NOT NULL)
+            let firstSeenAt = sqlite3_column_int64(statement, 3)
 
-            // Column 6: last_seen_at (INTEGER NOT NULL)
-            let lastSeenAt = sqlite3_column_int64(statement, 6)
+            // Column 4: last_seen_at (INTEGER NOT NULL)
+            let lastSeenAt = sqlite3_column_int64(statement, 4)
 
             let session = Session(
-                sessionId: sessionId,
                 cwd: cwd,
                 gitBranch: gitBranch,
                 status: status,

@@ -8,9 +8,9 @@ enum SessionStatus: String, Codable {
 }
 
 struct Session: Identifiable, Codable {
-    let id: String  // session_id
+    var id: String { cwd }  // cwd is the primary key
     let cwd: String
-    let gitBranch: String?
+    var gitBranch: String?
     var status: SessionStatus
     let firstSeenAt: Date
     var lastSeenAt: Date
@@ -45,14 +45,12 @@ struct Session: Identifiable, Codable {
 
     // For database mapping
     init(
-        sessionId: String,
         cwd: String,
         gitBranch: String?,
         status: String,
         firstSeenAt: Int64,
         lastSeenAt: Int64
     ) {
-        self.id = sessionId
         self.cwd = cwd
         self.gitBranch = gitBranch
         self.status = SessionStatus(rawValue: status) ?? .unknown

@@ -10,14 +10,13 @@ cat > /dev/null
 
 # Parse session info from environment
 cwd="${CLAUDE_PROJECT_DIR:-$(pwd)}"
-session_id=$(get_session_id "$cwd")
 git_branch=$(get_git_branch "$cwd")
 status="working"
 
 # 1. Write to database (blocking)
-db_upsert_session "$session_id" "$cwd" "$git_branch" "$status"
+db_upsert_session "$cwd" "$git_branch" "$status"
 
 # 2. Notify menu bar (fire-and-forget)
-notify_menubar "update" "$session_id" "$cwd" "$git_branch" "$status"
+notify_menubar "update" "$cwd" "$git_branch" "$status"
 
 exit 0

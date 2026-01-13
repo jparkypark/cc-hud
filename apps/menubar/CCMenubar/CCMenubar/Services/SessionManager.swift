@@ -79,21 +79,14 @@ class SessionManager {
     func handleEvent(_ event: SessionEvent) {
         switch event.event {
         case "start", "update":
-            // Match by cwd since session IDs differ between discovered/hook/real sessions
             if let index = sessions.firstIndex(where: { $0.cwd == event.cwd }) {
-                // Update existing session - replace with new data
-                sessions[index] = Session(
-                    sessionId: event.sessionId,
-                    cwd: event.cwd,
-                    gitBranch: event.gitBranch,
-                    status: event.status ?? "unknown",
-                    firstSeenAt: Int64(sessions[index].firstSeenAt.timeIntervalSince1970 * 1000),
-                    lastSeenAt: Int64(Date().timeIntervalSince1970 * 1000)
-                )
+                // Update existing session
+                sessions[index].gitBranch = event.gitBranch
+                sessions[index].status = SessionStatus(rawValue: event.status ?? "unknown") ?? .unknown
+                sessions[index].lastSeenAt = Date()
             } else {
                 // Add new session and maintain alphabetical order
                 let session = Session(
-                    sessionId: event.sessionId,
                     cwd: event.cwd,
                     gitBranch: event.gitBranch,
                     status: event.status ?? "unknown",

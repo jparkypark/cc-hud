@@ -15,24 +15,21 @@ for pid in $(ps aux | grep "[c]laude" | grep -v "Claude.app" | awk '{print $2}')
   project_dir=$(echo "$cwd" | sed 's|^/||' | sed 's|/|-|g')
   project_path="$HOME/.claude/projects/-$project_dir"
 
-  # Find most recent session transcript
+  # Find most recent session transcript (confirms this is a real Claude session)
   [ ! -d "$project_path" ] && continue
   recent=$(ls -t "$project_path"/*.jsonl 2>/dev/null | head -1)
   [ -z "$recent" ] && continue
 
-  # Skip if any session already exists for this cwd (discovery only finds new sessions)
+  # Skip if session already exists (discovery only creates new entries)
   safe_cwd=$(escape_sql "$cwd")
-  existing=$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM hud_sessions WHERE initial_cwd = '$safe_cwd';")
+  existing=$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM hud_sessions WHERE cwd = '$safe_cwd';")
   [ "$existing" -gt 0 ] && continue
-
-  # Use a discoverable session ID based on cwd (will be replaced when hooks fire)
-  session_id="discovered-$(echo "$cwd" | md5 | cut -c1-16)"
 
   # Get git branch
   git_branch=$(get_git_branch "$cwd")
 
-  # Register as discovered (will be replaced when hooks fire with real session ID)
-  db_upsert_session "$session_id" "$cwd" "$git_branch" "discovered"
+  # Register as discovered
+  db_upsert_session "$cwd" "$git_branch" "discovered"
 done
 
 exit 0
