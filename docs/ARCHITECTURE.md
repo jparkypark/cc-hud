@@ -83,7 +83,7 @@ chud/
 │   │   ├── package.json
 │   │   └── tsconfig.json
 │   │
-│   └── menubar/                  # Swift menu bar app
+│   └── overlay/                  # Swift overlay app
 │       └── chud/
 │           └── chud/
 │               ├── chudApp.swift
@@ -176,7 +176,7 @@ Shell scripts that Claude Code executes at lifecycle events.
 - `get_git_branch()` - Get current git branch for a directory
 - `db_upsert_session()` - Insert or update session in database
 - `db_delete_session()` - Remove session from database
-- `notify_menubar()` - POST session update to menu bar app
+- `notify_overlay()` - POST session update to menu bar app
 
 **session-start.sh** - Called on SessionStart:
 ```bash
@@ -188,7 +188,7 @@ cwd="$CLAUDE_WORKING_DIRECTORY"
 git_branch=$(get_git_branch "$cwd")
 
 db_upsert_session "$session_id" "$cwd" "$git_branch" "working"
-notify_menubar "start" "$session_id" "$cwd" "$git_branch" "working"
+notify_overlay "start" "$session_id" "$cwd" "$git_branch" "working"
 ```
 
 **prompt-submit.sh** - Called on UserPromptSubmit:
@@ -201,7 +201,7 @@ cwd="$CLAUDE_WORKING_DIRECTORY"
 git_branch=$(get_git_branch "$cwd")
 
 db_upsert_session "$session_id" "$cwd" "$git_branch" "working"
-notify_menubar "update" "$session_id" "$cwd" "$git_branch" "working"
+notify_overlay "update" "$session_id" "$cwd" "$git_branch" "working"
 ```
 
 **session-update.sh** - Called on Notification (idle_prompt):
@@ -214,7 +214,7 @@ cwd="$CLAUDE_WORKING_DIRECTORY"
 git_branch=$(get_git_branch "$cwd")
 
 db_upsert_session "$session_id" "$cwd" "$git_branch" "waiting"
-notify_menubar "update" "$session_id" "$cwd" "$git_branch" "waiting"
+notify_overlay "update" "$session_id" "$cwd" "$git_branch" "waiting"
 ```
 
 **session-end.sh** - Called on Stop:
@@ -226,7 +226,7 @@ session_id="$CLAUDE_SESSION_ID"
 cwd="$CLAUDE_WORKING_DIRECTORY"
 
 db_delete_session "$session_id"
-notify_menubar "end" "$session_id" "$cwd" "" ""
+notify_overlay "end" "$session_id" "$cwd" "" ""
 ```
 
 ### 2. Statusline (apps/statusline/)

@@ -1,10 +1,10 @@
 # Design Decisions
 
-This document captures the key design decisions made during development of cc-hud.
+This document captures the key design decisions made during development of chud.
 
 ## Overview
 
-cc-hud was created because existing Claude Code statusline packages lacked sufficient customization options. While they offered theme support, they didn't allow granular control over what information is displayed, segment ordering, or full color customization.
+chud was created because existing Claude Code statusline packages lacked sufficient customization options. While they offered theme support, they didn't allow granular control over what information is displayed, segment ordering, or full color customization.
 
 ## Key Problems Solved
 
@@ -78,13 +78,13 @@ Where `effectiveWindow = halfLife / ln(2) ≈ 1.44 × halfLife`
 
 ### 1. Configuration File Location
 
-**Decision:** `~/.claude/cc-hud.json`
+**Decision:** `~/.claude/chud.json`
 
 **Rationale:**
 - Follows the pattern of other Claude Code statusline packages
 - Claude-specific tool, makes sense to keep configs together
 - Users already know where `~/.claude/` is
-- Simpler than creating a separate `~/.cc-hud/` directory
+- Simpler than creating a separate `~/.chud/` directory
 
 ---
 
@@ -292,7 +292,7 @@ Ship focused features that solve real problems, then iterate based on usage. EWM
 
 ## Summary
 
-cc-hud provides:
+chud provides:
 1. ✅ Maximum flexibility (segment ordering, granular display control)
 2. ✅ Accurate cost tracking (ccusage + Codex CLI)
 3. ✅ Intelligent pace calculation (EWMA smoothing)

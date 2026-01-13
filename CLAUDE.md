@@ -11,8 +11,8 @@ Both share SQLite at `~/.claude/statusline-usage.db`.
 
 ```bash
 mise run install                      # Install both
-mise run install menubar              # Build + install chud to /Applications
-mise run install menubar --autostart  # Install + enable launch on login
+mise run install overlay              # Build + install chud to /Applications
+mise run install overlay --autostart  # Install + enable launch on login
 mise run install statusline           # Install dependencies
 mise run configure                    # Configure Claude Code to use statusline
 mise run autostart [enable|disable|status]  # Manage auto-start
@@ -24,4 +24,4 @@ mise run autostart [enable|disable|status]  # Manage auto-start
 - chud entry: `apps/overlay/chud/chud/chudApp.swift`
 - Hooks: `hooks/*.sh` (write to SQLite + POST to chud HTTP server on :19222)
 - Statusline config: `~/.claude/chud.json`
-- chud config: `~/.claude/chud-overlay.json` (written by `mise run install menubar`)
+- chud config: `~/.claude/chud-overlay.json` (written by `mise run install overlay`)

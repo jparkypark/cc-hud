@@ -14,7 +14,7 @@ cwd="${CLAUDE_PROJECT_DIR:-$(pwd)}"
 # 1. Delete from database (blocking)
 db_delete_session "$cwd"
 
-# 2. Notify menu bar (fire-and-forget)
-notify_menubar "end" "$cwd" "" ""
+# 2. Notify overlay (fire-and-forget)
+notify_overlay "end" "$cwd" "" ""
 
 exit 0

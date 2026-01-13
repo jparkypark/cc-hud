@@ -16,7 +16,7 @@ status="working"
 # 1. Write to database (blocking)
 db_upsert_session "$cwd" "$git_branch" "$status"
 
-# 2. Notify menu bar (fire-and-forget)
-notify_menubar "start" "$cwd" "$git_branch" "$status"
+# 2. Notify overlay (fire-and-forget)
+notify_overlay "start" "$cwd" "$git_branch" "$status"
 
 exit 0

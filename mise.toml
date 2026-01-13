@@ -3,8 +3,8 @@
 [tasks.install]
 description = "Install components"
 usage = '''
-arg "[component]" help="Component to install" default="all" { choices "all" "menubar" "statusline" }
-flag "-a --autostart" help="Enable auto-start on login (menubar only)"
+arg "[component]" help="Component to install" default="all" { choices "all" "overlay" "statusline" }
+flag "-a --autostart" help="Enable auto-start on login (overlay only)"
 '''
 dir = "{{config_root}}"
 run = """
@@ -23,8 +23,8 @@ install_statusline() {
     echo "To configure Claude Code automatically: mise run configure"
 }
 
-install_menubar() {
-    echo "Writing menubar config..."
+install_overlay() {
+    echo "Writing overlay config..."
     echo "{\"hooksDir\": \"$ROOT_DIR/hooks\"}" > ~/.claude/chud-overlay.json
     echo "Building chud..."
     xcodebuild -project "$ROOT_DIR/apps/overlay/chud/chud.xcodeproj" \\
@@ -42,10 +42,10 @@ install_menubar() {
 }
 
 enable_autostart() {
-    PLIST=~/Library/LaunchAgents/com.chud.menubar.plist
+    PLIST=~/Library/LaunchAgents/com.chud.overlay.plist
     mkdir -p ~/Library/LaunchAgents
     /usr/libexec/PlistBuddy -c "Clear dict" "$PLIST" 2>/dev/null || true
-    /usr/libexec/PlistBuddy -c "Add :Label string com.chud.menubar" "$PLIST"
+    /usr/libexec/PlistBuddy -c "Add :Label string com.chud.overlay" "$PLIST"
     /usr/libexec/PlistBuddy -c "Add :ProgramArguments array" "$PLIST"
     /usr/libexec/PlistBuddy -c "Add :ProgramArguments:0 string /usr/bin/open" "$PLIST"
     /usr/libexec/PlistBuddy -c "Add :ProgramArguments:1 string -a" "$PLIST"
@@ -60,7 +60,7 @@ case "$COMPONENT" in
     all)
         install_statusline
         echo ""
-        install_menubar
+        install_overlay
         if [ "$AUTOSTART" = "true" ]; then
             enable_autostart
         else
@@ -68,13 +68,13 @@ case "$COMPONENT" in
             echo "To launch automatically on login: mise run install --autostart"
         fi
         ;;
-    menubar)
-        install_menubar
+    overlay)
+        install_overlay
         if [ "$AUTOSTART" = "true" ]; then
             enable_autostart
         else
             echo ""
-            echo "To launch automatically on login: mise run install menubar --autostart"
+            echo "To launch automatically on login: mise run install overlay --autostart"
         fi
         ;;
     statusline)
@@ -131,7 +131,7 @@ echo "Restart Claude Code for changes to take effect."
 """
 
 [tasks.autostart]
-description = "Manage menubar auto-start on login"
+description = "Manage overlay auto-start on login"
 usage = '''
 arg "[action]" help="Action to perform" default="enable" { choices "enable" "disable" "status" }
 '''
@@ -140,13 +140,13 @@ run = """
 set -euo pipefail
 
 ACTION="${usage_action:-enable}"
-PLIST=~/Library/LaunchAgents/com.chud.menubar.plist
+PLIST=~/Library/LaunchAgents/com.chud.overlay.plist
 
 case "$ACTION" in
     enable)
         mkdir -p ~/Library/LaunchAgents
         /usr/libexec/PlistBuddy -c "Clear dict" "$PLIST" 2>/dev/null || true
-        /usr/libexec/PlistBuddy -c "Add :Label string com.chud.menubar" "$PLIST"
+        /usr/libexec/PlistBuddy -c "Add :Label string com.chud.overlay" "$PLIST"
         /usr/libexec/PlistBuddy -c "Add :ProgramArguments array" "$PLIST"
         /usr/libexec/PlistBuddy -c "Add :ProgramArguments:0 string /usr/bin/open" "$PLIST"
         /usr/libexec/PlistBuddy -c "Add :ProgramArguments:1 string -a" "$PLIST"

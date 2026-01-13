@@ -1,5 +1,5 @@
 #!/bin/bash
-# Shared functions for cc-hud hooks
+# Shared functions for chud hooks
 # NOTE: This file is sourced by other scripts, so we don't use set -e here
 
 DB_PATH="${HOME}/.claude/statusline-usage.db"
@@ -46,7 +46,7 @@ db_delete_session() {
 }
 
 # Notify menu bar app (fire-and-forget)
-notify_menubar() {
+notify_overlay() {
   local event="$1"
   local cwd="$2"
   local git_branch="$3"

@@ -16,7 +16,7 @@ This installs both components. To install individually:
 
 ```bash
 mise run install statusline   # statusline only
-mise run install menubar      # chud overlay app only
+mise run install overlay      # chud overlay app only
 ```
 
 ---
@@ -81,7 +81,7 @@ For full configuration options including all segments, colors, and themes, see [
 ## chud Overlay (macOS)
 
 <!-- TODO: Add menu bar screenshot -->
-![chud screenshot](docs/images/menubar-screenshot.png)
+![chud screenshot](docs/images/overlay-screenshot.png)
 
 A native macOS overlay app that displays all active Claude Code sessions. Launch via Spotlight/Raycast or click the menu bar icon.
 
@@ -102,7 +102,7 @@ A native macOS overlay app that displays all active Claude Code sessions. Launch
 ### Installation
 
 ```bash
-mise run install menubar
+mise run install overlay
 ```
 
 This builds the app, installs it to `/Applications`, and launches it.
@@ -110,7 +110,7 @@ This builds the app, installs it to `/Applications`, and launches it.
 ### Launch at Login
 
 ```bash
-mise run install menubar --autostart
+mise run install overlay --autostart
 ```
 
 Or manage auto-start separately:
@@ -196,7 +196,7 @@ The menu bar app uses Claude Code hooks to track sessions. Add to your `~/.claud
 After making changes, reinstall the updated component:
 
 ```bash
-mise run install menubar      # rebuilds, reinstalls, relaunches
+mise run install overlay      # rebuilds, reinstalls, relaunches
 mise run install statusline   # reinstalls dependencies
 ```
 
