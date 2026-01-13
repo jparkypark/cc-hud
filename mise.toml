@@ -26,19 +26,19 @@ install_statusline() {
 install_menubar() {
     echo "Writing menubar config..."
     echo "{\"hooksDir\": \"$ROOT_DIR/hooks\"}" > ~/.claude/cc-hud-menubar.json
-    echo "Building CCMenubar..."
-    xcodebuild -project "$ROOT_DIR/apps/menubar/CCMenubar/CCMenubar.xcodeproj" \\
-        -scheme CCMenubar \\
+    echo "Building cchud..."
+    xcodebuild -project "$ROOT_DIR/apps/menubar/cchud/cchud.xcodeproj" \\
+        -scheme cchud \\
         -configuration Debug \\
         build \\
         -quiet
-    echo "Stopping existing CCMenubar if running..."
-    pkill -x CCMenubar 2>/dev/null || true
+    echo "Stopping existing cchud if running..."
+    pkill -x cchud 2>/dev/null || true
     echo "Installing to /Applications..."
-    cp -r ~/Library/Developer/Xcode/DerivedData/CCMenubar-*/Build/Products/Debug/CCMenubar.app /Applications/
-    echo "Launching CCMenubar..."
-    open /Applications/CCMenubar.app
-    echo "Done. CCMenubar installed and running."
+    cp -r ~/Library/Developer/Xcode/DerivedData/cchud-*/Build/Products/Debug/cchud.app /Applications/
+    echo "Launching cchud..."
+    open /Applications/cchud.app
+    echo "Done. cchud installed and running."
 }
 
 enable_autostart() {
@@ -49,11 +49,11 @@ enable_autostart() {
     /usr/libexec/PlistBuddy -c "Add :ProgramArguments array" "$PLIST"
     /usr/libexec/PlistBuddy -c "Add :ProgramArguments:0 string /usr/bin/open" "$PLIST"
     /usr/libexec/PlistBuddy -c "Add :ProgramArguments:1 string -a" "$PLIST"
-    /usr/libexec/PlistBuddy -c "Add :ProgramArguments:2 string /Applications/CCMenubar.app" "$PLIST"
+    /usr/libexec/PlistBuddy -c "Add :ProgramArguments:2 string /Applications/cchud.app" "$PLIST"
     /usr/libexec/PlistBuddy -c "Add :RunAtLoad bool true" "$PLIST"
     /usr/libexec/PlistBuddy -c "Add :KeepAlive bool false" "$PLIST"
     launchctl load "$PLIST" 2>/dev/null || true
-    echo "Auto-start enabled. CCMenubar will launch on login."
+    echo "Auto-start enabled. cchud will launch on login."
 }
 
 case "$COMPONENT" in
@@ -150,11 +150,11 @@ case "$ACTION" in
         /usr/libexec/PlistBuddy -c "Add :ProgramArguments array" "$PLIST"
         /usr/libexec/PlistBuddy -c "Add :ProgramArguments:0 string /usr/bin/open" "$PLIST"
         /usr/libexec/PlistBuddy -c "Add :ProgramArguments:1 string -a" "$PLIST"
-        /usr/libexec/PlistBuddy -c "Add :ProgramArguments:2 string /Applications/CCMenubar.app" "$PLIST"
+        /usr/libexec/PlistBuddy -c "Add :ProgramArguments:2 string /Applications/cchud.app" "$PLIST"
         /usr/libexec/PlistBuddy -c "Add :RunAtLoad bool true" "$PLIST"
         /usr/libexec/PlistBuddy -c "Add :KeepAlive bool false" "$PLIST"
         launchctl load "$PLIST" 2>/dev/null || true
-        echo "Auto-start enabled. CCMenubar will launch on login."
+        echo "Auto-start enabled. cchud will launch on login."
         ;;
     disable)
         if [ -f "$PLIST" ]; then

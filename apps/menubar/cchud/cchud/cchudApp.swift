@@ -1,6 +1,6 @@
 //
-//  CCMenubarApp.swift
-//  CCMenubar
+//  cchudApp.swift
+//  cchud
 //
 //  Created by JP on 1/12/26.
 //
@@ -60,12 +60,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 }
 
 @main
-struct CCMenubarApp: App {
+struct cchudApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     var body: some Scene {
         MenuBarExtra {
-            MenuBarView(sessionManager: AppState.shared.sessionManager)
+            MenuBarView(
+                sessionManager: AppState.shared.sessionManager,
+                onShowSessions: {
+                    AppState.shared.showFloatingPanel()
+                }
+            )
         } label: {
             Image(systemName: "terminal")
         }

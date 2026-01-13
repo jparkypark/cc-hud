@@ -1,6 +1,6 @@
 # cc-hud
 
-A toolkit for monitoring Claude Code sessions: a customizable statusline with live usage tracking, and a native macOS menu bar app to see all active sessions at a glance.
+A toolkit for monitoring Claude Code sessions: a customizable statusline with live usage tracking, and a native macOS overlay app to see all active sessions at a glance.
 
 ---
 
@@ -9,14 +9,14 @@ A toolkit for monitoring Claude Code sessions: a customizable statusline with li
 ```bash
 git clone https://github.com/yourusername/cc-hud.git
 cd cc-hud
-just install
+mise run install
 ```
 
 This installs both components. To install individually:
 
 ```bash
-just install statusline   # statusline only
-just install menubar      # menu bar app only
+mise run install statusline   # statusline only
+mise run install menubar      # cchud overlay app only
 ```
 
 ---
@@ -44,10 +44,11 @@ A customizable status bar for Claude Code with live cost tracking, EWMA pace cal
 ### Installation
 
 ```bash
-just install statusline
+mise run install statusline
+mise run configure
 ```
 
-Then configure Claude Code by adding to `~/.claude/settings.json`:
+Or manually add to `~/.claude/settings.json`:
 
 ```json
 {
@@ -77,19 +78,20 @@ For full configuration options including all segments, colors, and themes, see [
 
 ---
 
-## Menu Bar App (macOS)
+## cchud Overlay (macOS)
 
 <!-- TODO: Add menu bar screenshot -->
-![Menu bar screenshot](docs/images/menubar-screenshot.png)
+![cchud screenshot](docs/images/menubar-screenshot.png)
 
-A native macOS app that displays all active Claude Code sessions in your menu bar.
+A native macOS overlay app that displays all active Claude Code sessions. Launch via Spotlight/Raycast or click the menu bar icon.
 
 ### Features
 
 - **See all sessions** - Monitor 3-5+ concurrent Claude Code sessions
 - **Status indicators** - Green (waiting for input), Yellow (working)
-- **Session metadata** - Project name, path, git branch, time since last activity
+- **Session metadata** - Project name, git branch, time since last activity
 - **Real-time updates** - Via Claude Code hooks
+- **Floating overlay** - Launch with Spotlight/Raycast, stays on top
 
 ### Requirements
 
@@ -100,18 +102,24 @@ A native macOS app that displays all active Claude Code sessions in your menu ba
 ### Installation
 
 ```bash
-just install menubar
+mise run install menubar
 ```
 
 This builds the app, installs it to `/Applications`, and launches it.
 
 ### Launch at Login
 
-To start the menu bar app automatically:
+```bash
+mise run install menubar --autostart
+```
 
-1. Open **System Settings → General → Login Items**
-2. Click **+** under "Open at Login"
-3. Select **CCMenubar.app** from Applications
+Or manage auto-start separately:
+
+```bash
+mise run autostart enable   # Enable launch at login
+mise run autostart disable  # Disable
+mise run autostart status   # Check status
+```
 
 ### Configuring Hooks
 
@@ -188,8 +196,8 @@ The menu bar app uses Claude Code hooks to track sessions. Add to your `~/.claud
 After making changes, reinstall the updated component:
 
 ```bash
-just install menubar      # rebuilds, reinstalls, relaunches
-just install statusline   # reinstalls dependencies
+mise run install menubar      # rebuilds, reinstalls, relaunches
+mise run install statusline   # reinstalls dependencies
 ```
 
 ---
@@ -258,7 +266,7 @@ The app listens on `localhost:19222`. If updates aren't instant:
      -d '{"event":"update","session_id":"test","cwd":"/tmp","status":"waiting"}'
    ```
 
-3. **Restart the app** - Quit and relaunch CCMenubar
+3. **Restart the app** - Quit and relaunch cchud
 
 ### Database errors
 

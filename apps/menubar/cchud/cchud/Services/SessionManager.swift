@@ -57,7 +57,7 @@ class SessionManager {
     /// Runs the discovery script to find running Claude sessions.
     private func discoverSessions() {
         guard let scriptPath = discoveryScriptPath else {
-            print("[CCMenubar] Discovery script path not configured")
+            print("[cchud] Discovery script path not configured")
             return
         }
 
@@ -69,7 +69,7 @@ class SessionManager {
             try process.run()
             process.waitUntilExit()
         } catch {
-            print("[CCMenubar] Failed to run discovery script: \(error)")
+            print("[cchud] Failed to run discovery script: \(error)")
         }
     }
 

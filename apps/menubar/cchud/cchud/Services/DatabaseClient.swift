@@ -16,7 +16,7 @@ class DatabaseClient {
     /// - Returns: `true` if successful, `false` otherwise.
     func open() -> Bool {
         guard sqlite3_open(dbPath, &db) == SQLITE_OK else {
-            print("[CCMenubar] Failed to open database at \(dbPath)")
+            print("[cchud] Failed to open database at \(dbPath)")
             return false
         }
         return true
@@ -45,7 +45,7 @@ class DatabaseClient {
 
         var statement: OpaquePointer?
         guard sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK else {
-            print("[CCMenubar] Failed to prepare query")
+            print("[cchud] Failed to prepare query")
             return []
         }
         defer { sqlite3_finalize(statement) }

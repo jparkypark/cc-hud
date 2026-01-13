@@ -7,7 +7,7 @@ This document describes the technical implementation of cc-hud.
 cc-hud is a monorepo containing two applications:
 
 1. **Statusline** (TypeScript/Bun) - A command-line tool that renders a customizable status bar for Claude Code
-2. **Menu Bar App** (Swift/SwiftUI) - A native macOS app that displays all active Claude Code sessions
+2. **cchud Overlay** (Swift/SwiftUI) - A native macOS app that displays all active Claude Code sessions
 
 Both applications share a SQLite database for session state.
 
@@ -34,7 +34,7 @@ Both applications share a SQLite database for session state.
                        │                        │
                        ▼                        ▼
 ┌──────────────────────────────┐    ┌──────────────────────────────┐
-│ SQLite Database              │    │ Menu Bar App HTTP Server     │
+│ SQLite Database              │    │ cchud Overlay HTTP Server     │
 │ ~/.claude/statusline-usage.db│    │ localhost:19222              │
 │                              │    │                              │
 │ hud_sessions table           │    │ Receives real-time updates   │
@@ -43,7 +43,7 @@ Both applications share a SQLite database for session state.
             │                                    │
             ▼                                    ▼
 ┌──────────────────────────────┐    ┌──────────────────────────────┐
-│ Statusline (TypeScript)      │    │ Menu Bar App (Swift)         │
+│ Statusline (TypeScript)      │    │ cchud Overlay (Swift)         │
 │ apps/statusline/             │    │ apps/menubar/                │
 │                              │    │                              │
 │ Reads DB for session info    │    │ Reads DB on startup/refresh  │
@@ -84,9 +84,9 @@ cc-hud/
 │   │   └── tsconfig.json
 │   │
 │   └── menubar/                  # Swift menu bar app
-│       └── CCMenubar/
-│           └── CCMenubar/
-│               ├── CCMenubarApp.swift
+│       └── cchud/
+│           └── cchud/
+│               ├── cchudApp.swift
 │               ├── Models/
 │               │   ├── Session.swift
 │               │   └── SessionEvent.swift
@@ -246,12 +246,12 @@ TypeScript application that renders the Claude Code status bar.
 - **EWMA Calculator** - Smoothed pace calculation with configurable half-life
 - **Powerline Renderer** - Supports background and text-only color modes
 
-### 3. Menu Bar App (apps/menubar/)
+### 3. cchud Overlay (apps/menubar/)
 
 Native macOS app built with SwiftUI.
 
 **Architecture:**
-- **CCMenubarApp.swift** - App entry point with MenuBarExtra
+- **cchudApp.swift** - App entry point with MenuBarExtra
 - **Session.swift** - Data model for sessions
 - **SessionEvent.swift** - HTTP payload model
 - **DatabaseClient.swift** - SQLite3 C API wrapper
@@ -373,7 +373,7 @@ Two color modes:
 - **Background mode** - Colored backgrounds with powerline separators
 - **Text mode** - Colored text only, pipe separators
 
-## Menu Bar App Details
+## cchud Overlay Details
 
 ### Session Model
 
@@ -460,7 +460,7 @@ struct MenuBarView: View {
 - Pace calculation: ~5-10ms
 - Render: ~1ms
 
-### Menu Bar App
+### cchud Overlay
 
 - Startup: Read DB once
 - HTTP updates: Instant UI refresh
@@ -477,6 +477,6 @@ struct MenuBarView: View {
 - ccusage errors: Show $0
 - Codex CLI missing: Silently skip
 
-### Menu Bar App
+### cchud Overlay
 - DB read errors: Show empty state
 - HTTP parse errors: Ignore malformed requests
