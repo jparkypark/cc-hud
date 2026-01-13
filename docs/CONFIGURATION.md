@@ -47,6 +47,11 @@ cc-hud works with sensible defaults. A minimal config:
       "colors": { "fg": "#87cefa", "bg": "#9333ea" }
     },
     {
+      "type": "context",
+      "display": { "icon": true, "mode": "remaining" },
+      "colors": { "fg": "#818cf8", "bg": "#4f46e5" }
+    },
+    {
       "type": "time",
       "display": { "icon": true, "format": "12h", "seconds": false },
       "colors": { "fg": "#c084fc", "bg": "#9333ea" }
@@ -118,7 +123,7 @@ Override default colors for light or dark themes:
 }
 ```
 
-Valid segment types for overrides: `directory`, `git`, `pr`, `usage`, `pace`, `time`, `thoughts`
+Valid segment types for overrides: `directory`, `git`, `pr`, `usage`, `pace`, `context`, `time`, `thoughts`
 
 **Color priority:**
 1. Segment-level `colors` (highest)
@@ -264,6 +269,34 @@ The half-life determines how quickly old costs "decay" in the pace calculation:
 | 21 min | 12.5% |
 
 Lower values = more responsive to recent changes. Higher values = smoother, less spiky.
+
+---
+
+### Context
+
+Context window usage percentage. Shows how much of Claude's context window has been used or remains.
+
+```json
+{
+  "type": "context",
+  "display": {
+    "icon": true,
+    "mode": "remaining"
+  }
+}
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `icon` | boolean | `true` | Show window symbol (◧) |
+| `mode` | string | `"used"` | Display mode (see below) |
+
+**Display modes:**
+- `"used"` - Show percentage of context used: `◧ 46%`
+- `"remaining"` - Show percentage remaining: `◧ 54%`
+- `"both"` - Show both values: `◧ 46%/54%`
+
+**Note:** This segment requires Claude Code to provide context window data. It will automatically hide when no data is available.
 
 ---
 
