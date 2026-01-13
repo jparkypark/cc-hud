@@ -1,4 +1,4 @@
-# cchud mise configuration
+# chud mise configuration
 
 [tasks.install]
 description = "Install components"
@@ -25,35 +25,35 @@ install_statusline() {
 
 install_menubar() {
     echo "Writing menubar config..."
-    echo "{\"hooksDir\": \"$ROOT_DIR/hooks\"}" > ~/.claude/cchud-overlay.json
-    echo "Building cchud..."
-    xcodebuild -project "$ROOT_DIR/apps/overlay/cchud/cchud.xcodeproj" \\
-        -scheme cchud \\
+    echo "{\"hooksDir\": \"$ROOT_DIR/hooks\"}" > ~/.claude/chud-overlay.json
+    echo "Building chud..."
+    xcodebuild -project "$ROOT_DIR/apps/overlay/chud/chud.xcodeproj" \\
+        -scheme chud \\
         -configuration Debug \\
         build \\
         -quiet
-    echo "Stopping existing cchud if running..."
-    pkill -x cchud 2>/dev/null || true
+    echo "Stopping existing chud if running..."
+    pkill -x chud 2>/dev/null || true
     echo "Installing to /Applications..."
-    cp -r ~/Library/Developer/Xcode/DerivedData/cchud-*/Build/Products/Debug/cchud.app /Applications/
-    echo "Launching cchud..."
-    open /Applications/cchud.app
-    echo "Done. cchud installed and running."
+    cp -r ~/Library/Developer/Xcode/DerivedData/chud-*/Build/Products/Debug/chud.app /Applications/
+    echo "Launching chud..."
+    open /Applications/chud.app
+    echo "Done. chud installed and running."
 }
 
 enable_autostart() {
-    PLIST=~/Library/LaunchAgents/com.cchud.menubar.plist
+    PLIST=~/Library/LaunchAgents/com.chud.menubar.plist
     mkdir -p ~/Library/LaunchAgents
     /usr/libexec/PlistBuddy -c "Clear dict" "$PLIST" 2>/dev/null || true
-    /usr/libexec/PlistBuddy -c "Add :Label string com.cchud.menubar" "$PLIST"
+    /usr/libexec/PlistBuddy -c "Add :Label string com.chud.menubar" "$PLIST"
     /usr/libexec/PlistBuddy -c "Add :ProgramArguments array" "$PLIST"
     /usr/libexec/PlistBuddy -c "Add :ProgramArguments:0 string /usr/bin/open" "$PLIST"
     /usr/libexec/PlistBuddy -c "Add :ProgramArguments:1 string -a" "$PLIST"
-    /usr/libexec/PlistBuddy -c "Add :ProgramArguments:2 string /Applications/cchud.app" "$PLIST"
+    /usr/libexec/PlistBuddy -c "Add :ProgramArguments:2 string /Applications/chud.app" "$PLIST"
     /usr/libexec/PlistBuddy -c "Add :RunAtLoad bool true" "$PLIST"
     /usr/libexec/PlistBuddy -c "Add :KeepAlive bool false" "$PLIST"
     launchctl load "$PLIST" 2>/dev/null || true
-    echo "Auto-start enabled. cchud will launch on login."
+    echo "Auto-start enabled. chud will launch on login."
 }
 
 case "$COMPONENT" in
@@ -84,7 +84,7 @@ esac
 """
 
 [tasks.configure]
-description = "Configure Claude Code to use cchud statusline"
+description = "Configure Claude Code to use chud statusline"
 dir = "{{config_root}}"
 run = """
 #!/usr/bin/env bash
@@ -140,21 +140,21 @@ run = """
 set -euo pipefail
 
 ACTION="${usage_action:-enable}"
-PLIST=~/Library/LaunchAgents/com.cchud.menubar.plist
+PLIST=~/Library/LaunchAgents/com.chud.menubar.plist
 
 case "$ACTION" in
     enable)
         mkdir -p ~/Library/LaunchAgents
         /usr/libexec/PlistBuddy -c "Clear dict" "$PLIST" 2>/dev/null || true
-        /usr/libexec/PlistBuddy -c "Add :Label string com.cchud.menubar" "$PLIST"
+        /usr/libexec/PlistBuddy -c "Add :Label string com.chud.menubar" "$PLIST"
         /usr/libexec/PlistBuddy -c "Add :ProgramArguments array" "$PLIST"
         /usr/libexec/PlistBuddy -c "Add :ProgramArguments:0 string /usr/bin/open" "$PLIST"
         /usr/libexec/PlistBuddy -c "Add :ProgramArguments:1 string -a" "$PLIST"
-        /usr/libexec/PlistBuddy -c "Add :ProgramArguments:2 string /Applications/cchud.app" "$PLIST"
+        /usr/libexec/PlistBuddy -c "Add :ProgramArguments:2 string /Applications/chud.app" "$PLIST"
         /usr/libexec/PlistBuddy -c "Add :RunAtLoad bool true" "$PLIST"
         /usr/libexec/PlistBuddy -c "Add :KeepAlive bool false" "$PLIST"
         launchctl load "$PLIST" 2>/dev/null || true
-        echo "Auto-start enabled. cchud will launch on login."
+        echo "Auto-start enabled. chud will launch on login."
         ;;
     disable)
         if [ -f "$PLIST" ]; then

@@ -1,4 +1,4 @@
-# cchud
+# chud
 
 A toolkit for monitoring Claude Code sessions: a customizable statusline with live usage tracking, and a native macOS overlay app to see all active sessions at a glance.
 
@@ -7,8 +7,8 @@ A toolkit for monitoring Claude Code sessions: a customizable statusline with li
 ## Quick Start
 
 ```bash
-git clone https://github.com/yourusername/cchud.git
-cd cchud
+git clone https://github.com/yourusername/chud.git
+cd chud
 mise run install
 ```
 
@@ -16,7 +16,7 @@ This installs both components. To install individually:
 
 ```bash
 mise run install statusline   # statusline only
-mise run install menubar      # cchud overlay app only
+mise run install menubar      # chud overlay app only
 ```
 
 ---
@@ -54,16 +54,16 @@ Or manually add to `~/.claude/settings.json`:
 {
   "statusLine": {
     "type": "command",
-    "command": "bun /path/to/cchud/apps/statusline/src/index.ts"
+    "command": "bun /path/to/chud/apps/statusline/src/index.ts"
   }
 }
 ```
 
-Replace `/path/to/cchud` with your clone location.
+Replace `/path/to/chud` with your clone location.
 
 ### Quick Configuration
 
-cchud works out of the box. To customize, create `~/.claude/cchud.json`:
+chud works out of the box. To customize, create `~/.claude/chud.json`:
 
 ```json
 {
@@ -78,10 +78,10 @@ For full configuration options including all segments, colors, and themes, see [
 
 ---
 
-## cchud Overlay (macOS)
+## chud Overlay (macOS)
 
 <!-- TODO: Add menu bar screenshot -->
-![cchud screenshot](docs/images/menubar-screenshot.png)
+![chud screenshot](docs/images/menubar-screenshot.png)
 
 A native macOS overlay app that displays all active Claude Code sessions. Launch via Spotlight/Raycast or click the menu bar icon.
 
@@ -133,7 +133,7 @@ The menu bar app uses Claude Code hooks to track sessions. Add to your `~/.claud
         "hooks": [
           {
             "type": "command",
-            "command": "/path/to/cchud/hooks/session-start.sh"
+            "command": "/path/to/chud/hooks/session-start.sh"
           }
         ]
       }
@@ -143,7 +143,7 @@ The menu bar app uses Claude Code hooks to track sessions. Add to your `~/.claud
         "hooks": [
           {
             "type": "command",
-            "command": "/path/to/cchud/hooks/prompt-submit.sh"
+            "command": "/path/to/chud/hooks/prompt-submit.sh"
           }
         ]
       }
@@ -154,7 +154,7 @@ The menu bar app uses Claude Code hooks to track sessions. Add to your `~/.claud
         "hooks": [
           {
             "type": "command",
-            "command": "/path/to/cchud/hooks/session-update.sh"
+            "command": "/path/to/chud/hooks/session-update.sh"
           }
         ]
       }
@@ -164,7 +164,7 @@ The menu bar app uses Claude Code hooks to track sessions. Add to your `~/.claud
         "hooks": [
           {
             "type": "command",
-            "command": "/path/to/cchud/hooks/session-end.sh"
+            "command": "/path/to/chud/hooks/session-end.sh"
           }
         ]
       }
@@ -175,10 +175,10 @@ The menu bar app uses Claude Code hooks to track sessions. Add to your `~/.claud
 
 **Setup checklist:**
 
-- [ ] Replace `/path/to/cchud` with your actual clone location
+- [ ] Replace `/path/to/chud` with your actual clone location
 - [ ] Merge into existing settings (don't replace the whole file)
 - [ ] Install jq: `brew install jq`
-- [ ] Make hooks executable: `chmod +x /path/to/cchud/hooks/*.sh`
+- [ ] Make hooks executable: `chmod +x /path/to/chud/hooks/*.sh`
 
 **What each hook does:**
 
@@ -208,12 +208,12 @@ mise run install statusline   # reinstalls dependencies
 
 1. **Check the path** - Verify the path in `settings.json` points to the correct location:
    ```bash
-   ls /path/to/cchud/apps/statusline/src/index.ts
+   ls /path/to/chud/apps/statusline/src/index.ts
    ```
 
 2. **Test manually** - Run the statusline directly:
    ```bash
-   echo '{}' | bun /path/to/cchud/apps/statusline/src/index.ts
+   echo '{}' | bun /path/to/chud/apps/statusline/src/index.ts
    ```
 
 3. **Check for errors** - Look at Claude Code's output for error messages
@@ -227,7 +227,7 @@ mise run install statusline   # reinstalls dependencies
 
 2. **Hooks not executable** - Fix permissions:
    ```bash
-   chmod +x /path/to/cchud/hooks/*.sh
+   chmod +x /path/to/chud/hooks/*.sh
    ```
 
 3. **jq not installed** - Install it:
@@ -239,7 +239,7 @@ mise run install statusline   # reinstalls dependencies
    ```bash
    export CLAUDE_SESSION_ID="test-123"
    export CLAUDE_WORKING_DIRECTORY="$(pwd)"
-   /path/to/cchud/hooks/session-start.sh
+   /path/to/chud/hooks/session-start.sh
 
    # Check database
    sqlite3 ~/.claude/statusline-usage.db "SELECT * FROM hud_sessions;"
@@ -266,7 +266,7 @@ The app listens on `localhost:19222`. If updates aren't instant:
      -d '{"event":"update","session_id":"test","cwd":"/tmp","status":"waiting"}'
    ```
 
-3. **Restart the app** - Quit and relaunch cchud
+3. **Restart the app** - Quit and relaunch chud
 
 ### Database errors
 

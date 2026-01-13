@@ -17,7 +17,7 @@ class SessionManager {
     /// Path to the discovery script, loaded from config.
     private let discoveryScriptPath: String? = {
         let configPath = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".claude/cchud-overlay.json")
+            .appendingPathComponent(".claude/chud-overlay.json")
 
         guard let data = try? Data(contentsOf: configPath),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -57,7 +57,7 @@ class SessionManager {
     /// Runs the discovery script to find running Claude sessions.
     private func discoverSessions() {
         guard let scriptPath = discoveryScriptPath else {
-            print("[cchud] Discovery script path not configured")
+            print("[chud] Discovery script path not configured")
             return
         }
 
@@ -69,7 +69,7 @@ class SessionManager {
             try process.run()
             process.waitUntilExit()
         } catch {
-            print("[cchud] Failed to run discovery script: \(error)")
+            print("[chud] Failed to run discovery script: \(error)")
         }
     }
 

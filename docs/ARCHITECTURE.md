@@ -1,13 +1,13 @@
 # Architecture
 
-This document describes the technical implementation of cchud.
+This document describes the technical implementation of chud.
 
 ## Overview
 
-cchud is a monorepo containing two applications:
+chud is a monorepo containing two applications:
 
 1. **Statusline** (TypeScript/Bun) - A command-line tool that renders a customizable status bar for Claude Code
-2. **cchud Overlay** (Swift/SwiftUI) - A native macOS app that displays all active Claude Code sessions
+2. **chud Overlay** (Swift/SwiftUI) - A native macOS app that displays all active Claude Code sessions
 
 Both applications share a SQLite database for session state.
 
@@ -34,7 +34,7 @@ Both applications share a SQLite database for session state.
                        │                        │
                        ▼                        ▼
 ┌──────────────────────────────┐    ┌──────────────────────────────┐
-│ SQLite Database              │    │ cchud Overlay HTTP Server     │
+│ SQLite Database              │    │ chud Overlay HTTP Server     │
 │ ~/.claude/statusline-usage.db│    │ localhost:19222              │
 │                              │    │                              │
 │ hud_sessions table           │    │ Receives real-time updates   │
@@ -43,7 +43,7 @@ Both applications share a SQLite database for session state.
             │                                    │
             ▼                                    ▼
 ┌──────────────────────────────┐    ┌──────────────────────────────┐
-│ Statusline (TypeScript)      │    │ cchud Overlay (Swift)         │
+│ Statusline (TypeScript)      │    │ chud Overlay (Swift)         │
 │ apps/statusline/             │    │ apps/overlay/                │
 │                              │    │                              │
 │ Reads DB for session info    │    │ Reads DB on startup/refresh  │
@@ -54,7 +54,7 @@ Both applications share a SQLite database for session state.
 ## Project Structure
 
 ```
-cchud/
+chud/
 ├── apps/
 │   ├── statusline/               # TypeScript statusline app
 │   │   ├── src/
@@ -84,9 +84,9 @@ cchud/
 │   │   └── tsconfig.json
 │   │
 │   └── menubar/                  # Swift menu bar app
-│       └── cchud/
-│           └── cchud/
-│               ├── cchudApp.swift
+│       └── chud/
+│           └── chud/
+│               ├── chudApp.swift
 │               ├── Models/
 │               │   ├── Session.swift
 │               │   └── SessionEvent.swift
@@ -235,7 +235,7 @@ TypeScript application that renders the Claude Code status bar.
 
 **Data Flow:**
 1. Receives JSON from Claude Code via stdin
-2. Loads config from `~/.claude/cchud.json`
+2. Loads config from `~/.claude/chud.json`
 3. Fetches usage data (ccusage + Codex CLI)
 4. Calculates EWMA pace from transcript files
 5. Renders segments with powerline styling
@@ -246,12 +246,12 @@ TypeScript application that renders the Claude Code status bar.
 - **EWMA Calculator** - Smoothed pace calculation with configurable half-life
 - **Powerline Renderer** - Supports background and text-only color modes
 
-### 3. cchud Overlay (apps/overlay/)
+### 3. chud Overlay (apps/overlay/)
 
 Native macOS app built with SwiftUI.
 
 **Architecture:**
-- **cchudApp.swift** - App entry point with MenuBarExtra
+- **chudApp.swift** - App entry point with MenuBarExtra
 - **Session.swift** - Data model for sessions
 - **SessionEvent.swift** - HTTP payload model
 - **DatabaseClient.swift** - SQLite3 C API wrapper
@@ -373,7 +373,7 @@ Two color modes:
 - **Background mode** - Colored backgrounds with powerline separators
 - **Text mode** - Colored text only, pipe separators
 
-## cchud Overlay Details
+## chud Overlay Details
 
 ### Session Model
 
@@ -460,7 +460,7 @@ struct MenuBarView: View {
 - Pace calculation: ~5-10ms
 - Render: ~1ms
 
-### cchud Overlay
+### chud Overlay
 
 - Startup: Read DB once
 - HTTP updates: Instant UI refresh
@@ -477,6 +477,6 @@ struct MenuBarView: View {
 - ccusage errors: Show $0
 - Codex CLI missing: Silently skip
 
-### cchud Overlay
+### chud Overlay
 - DB read errors: Show empty state
 - HTTP parse errors: Ignore malformed requests

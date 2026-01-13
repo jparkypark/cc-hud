@@ -18,7 +18,7 @@ export class DatabaseClient {
 
     // Check if database exists
     if (!existsSync(path)) {
-      console.error(`[cchud] Database not found at ${path}`);
+      console.error(`[chud] Database not found at ${path}`);
       return;
     }
 
@@ -30,7 +30,7 @@ export class DatabaseClient {
       });
       this.initializeSessionsTable();
     } catch (error) {
-      console.error(`[cchud] Failed to open database: ${error}`);
+      console.error(`[chud] Failed to open database: ${error}`);
     }
   }
 
@@ -53,7 +53,7 @@ export class DatabaseClient {
         )
       `);
     } catch (error) {
-      console.error(`[cchud] Failed to create hud_sessions table: ${error}`);
+      console.error(`[chud] Failed to create hud_sessions table: ${error}`);
     }
 
     // Migration: add new columns if they don't exist (ignore errors)
@@ -109,7 +109,7 @@ export class DatabaseClient {
         models_used: '[]',  // Not calculated
       };
     } catch (error) {
-      console.error(`[cchud] Failed to query daily summary: ${error}`);
+      console.error(`[chud] Failed to query daily summary: ${error}`);
       return null;
     }
   }
@@ -182,7 +182,7 @@ export class DatabaseClient {
 
       return isRootAtStart;
     } catch (error) {
-      console.error(`[cchud] Failed to get session root status: ${error}`);
+      console.error(`[chud] Failed to get session root status: ${error}`);
       // Fallback on error
       return currentCwd === gitRoot;
     }
@@ -205,7 +205,7 @@ export class DatabaseClient {
       const result = deleteQuery.run(cutoffTime);
       return result.changes;
     } catch (error) {
-      console.error(`[cchud] Failed to cleanup old sessions: ${error}`);
+      console.error(`[chud] Failed to cleanup old sessions: ${error}`);
       return 0;
     }
   }

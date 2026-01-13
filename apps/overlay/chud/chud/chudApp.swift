@@ -1,6 +1,6 @@
 //
-//  cchudApp.swift
-//  cchud
+//  chudApp.swift
+//  chud
 //
 //  Created by JP on 1/12/26.
 //
@@ -60,7 +60,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 }
 
 @main
-struct cchudApp: App {
+struct chudApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     var body: some Scene {

@@ -1,5 +1,5 @@
 /**
- * Theme color presets for cchud
+ * Theme color presets for chud
  */
 
 import type { SegmentColors, ThemeMode, SegmentType, ThemeColorOverrides } from './types';

@@ -13,7 +13,7 @@ import { homedir } from 'os';
 
 // Cache Codex data for 5 minutes to avoid slow CLI calls
 const CODEX_CACHE_TTL_MS = 5 * 60 * 1000;
-const CACHE_DIR = join(homedir(), '.cache', 'cchud');
+const CACHE_DIR = join(homedir(), '.cache', 'chud');
 const CODEX_CACHE_FILE = join(CACHE_DIR, 'codex-usage.json');
 
 interface CodexCacheData {
@@ -245,7 +245,7 @@ export class UsageSegment extends Segment {
         process.stdout.write = originalProcessStdoutWrite;
       }
     } catch (error) {
-      console.error('[cchud] Failed to load usage data from ccusage:', error);
+      console.error('[chud] Failed to load usage data from ccusage:', error);
       return { cost: 0, inputTokens: 0, outputTokens: 0 };
     }
   }

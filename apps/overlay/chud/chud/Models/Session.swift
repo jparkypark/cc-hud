@@ -20,7 +20,7 @@ struct Session: Identifiable, Codable {
         URL(fileURLWithPath: cwd).lastPathComponent
     }
 
-    /// Path displayed as parent/project (e.g., "repos/cchud" instead of "~/repos/cchud")
+    /// Path displayed as parent/project (e.g., "repos/chud" instead of "~/repos/chud")
     var abbreviatedPath: String {
         let components = cwd.split(separator: "/").map(String.init)
         guard components.count >= 2 else {
@@ -30,7 +30,7 @@ struct Session: Identifiable, Codable {
         return components.suffix(2).joined(separator: "/")
     }
 
-    /// Parent directory for grouping (e.g., "~/repos" from "~/repos/cchud")
+    /// Parent directory for grouping (e.g., "~/repos" from "~/repos/chud")
     var parentDirectory: String {
         let url = URL(fileURLWithPath: cwd)
         let parent = url.deletingLastPathComponent().path

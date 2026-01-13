@@ -12,7 +12,7 @@ class HTTPServer {
             params.allowLocalEndpointReuse = true
             listener = try NWListener(using: params, on: NWEndpoint.Port(rawValue: port)!)
         } catch {
-            print("[cchud] Failed to create listener: \(error)")
+            print("[chud] Failed to create listener: \(error)")
             return
         }
 
@@ -23,9 +23,9 @@ class HTTPServer {
         listener?.stateUpdateHandler = { state in
             switch state {
             case .ready:
-                print("[cchud] HTTP server listening on port \(self.port)")
+                print("[chud] HTTP server listening on port \(self.port)")
             case .failed(let error):
-                print("[cchud] HTTP server failed: \(error)")
+                print("[chud] HTTP server failed: \(error)")
             default:
                 break
             }
@@ -66,7 +66,7 @@ class HTTPServer {
                         self.onSessionEvent?(event)
                     }
                 } catch {
-                    print("[cchud] Failed to decode event: \(error)")
+                    print("[chud] Failed to decode event: \(error)")
                 }
             }
         }

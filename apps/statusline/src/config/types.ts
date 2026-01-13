@@ -1,5 +1,5 @@
 /**
- * Configuration types for cchud
+ * Configuration types for chud
  */
 
 export type SeparatorStyle = 'angled' | 'thin' | 'rounded' | 'flame' | 'slant' | 'backslant';

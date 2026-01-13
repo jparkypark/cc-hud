@@ -1,5 +1,5 @@
 /**
- * Default configuration for cchud
+ * Default configuration for chud
  */
 
 import type { Config } from './types';

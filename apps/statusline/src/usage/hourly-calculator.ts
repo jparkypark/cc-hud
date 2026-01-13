@@ -148,7 +148,7 @@ function calculateEntryCost(entry: any): number {
 
   const pricing = PRICING[model];
   if (!pricing) {
-    console.error(`[cchud] Unknown model for pricing: ${model}`);
+    console.error(`[chud] Unknown model for pricing: ${model}`);
     return 0;
   }
 
