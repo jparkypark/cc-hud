@@ -2,6 +2,30 @@
 
 Complete configuration reference for cc-hud statusline.
 
+## Setup
+
+To configure Claude Code to use the statusline:
+
+```bash
+mise run install statusline   # Install dependencies
+mise run configure            # Configure Claude Code automatically
+```
+
+The `configure` command updates `~/.claude/settings.json` with the statusLine settings. Restart Claude Code after running it.
+
+**Manual setup:** If you prefer, add this to `~/.claude/settings.json`:
+
+```json
+{
+  "statusLine": {
+    "type": "command",
+    "command": "bun /path/to/cc-hud/apps/statusline/src/index.ts"
+  }
+}
+```
+
+## Statusline Config
+
 Config file location: `~/.claude/cc-hud.json`
 
 ## Minimal Configuration
