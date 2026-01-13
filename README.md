@@ -4,6 +4,23 @@ A toolkit for monitoring Claude Code sessions: a customizable statusline with li
 
 ---
 
+## Quick Start
+
+```bash
+git clone https://github.com/yourusername/cc-hud.git
+cd cc-hud
+just install
+```
+
+This installs both components. To install individually:
+
+```bash
+just install statusline   # statusline only
+just install menubar      # menu bar app only
+```
+
+---
+
 ## Statusline
 
 ![Statusline screenshot](docs/images/screenshot.png)
@@ -26,17 +43,13 @@ A customizable status bar for Claude Code with live cost tracking, EWMA pace cal
 
 ### Installation
 
-For development/local use:
-
 ```bash
-git clone https://github.com/yourusername/cc-hud.git
-cd cc-hud
+just install statusline
 ```
 
-Configure Claude Code to use the statusline:
+Then configure Claude Code by adding to `~/.claude/settings.json`:
 
 ```json
-// ~/.claude/settings.json
 {
   "statusLine": {
     "type": "command",
@@ -86,21 +99,11 @@ A native macOS app that displays all active Claude Code sessions in your menu ba
 
 ### Installation
 
-1. **Build the app:**
-   ```bash
-   cd /path/to/cc-hud/apps/menubar/CCMenubar
-   open CCMenubar.xcodeproj
-   ```
-   In Xcode: Product → Build (Cmd+B)
+```bash
+just install menubar
+```
 
-2. **Copy to Applications (optional):**
-   ```bash
-   cp -r ~/Library/Developer/Xcode/DerivedData/CCMenubar-*/Build/Products/Debug/CCMenubar.app /Applications/
-   ```
-
-3. **Configure Claude Code hooks** (see below)
-
-4. **Launch the app** - A terminal icon appears in your menu bar
+This builds the app, installs it to `/Applications`, and launches it.
 
 ### Launch at Login
 
@@ -108,7 +111,7 @@ To start the menu bar app automatically:
 
 1. Open **System Settings → General → Login Items**
 2. Click **+** under "Open at Login"
-3. Select **CCMenubar.app** from Applications (or your build location)
+3. Select **CCMenubar.app** from Applications
 
 ### Configuring Hooks
 
@@ -166,6 +169,17 @@ The menu bar app uses Claude Code hooks to track sessions. Add to your `~/.claud
 | `SessionStart` | Session starts | Registers session as "working" (yellow) |
 | `Notification` | Claude waiting for input | Updates to "waiting" (green) |
 | `Stop` | Session ends | Removes from menu bar |
+
+---
+
+## Development
+
+After making changes, reinstall the updated component:
+
+```bash
+just install menubar      # rebuilds, reinstalls, relaunches
+just install statusline   # reinstalls dependencies
+```
 
 ---
 
