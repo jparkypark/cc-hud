@@ -50,8 +50,8 @@ autostart action="enable":
             ;;
     esac
 
-# Install both menubar and statusline (default), or specify: just install menubar|statusline
-install component="all":
+# Install both menubar and statusline (default), or specify: just install menubar|statusline [autostart]
+install component="all" autostart="":
     #!/usr/bin/env bash
     set -euo pipefail
 
@@ -83,8 +83,21 @@ install component="all":
         echo "Launching CCMenubar..."
         open /Applications/CCMenubar.app
         echo "Done. CCMenubar installed and running."
-        echo ""
-        echo "To launch automatically on login: just autostart enable"
+    }
+
+    enable_autostart() {
+        PLIST=~/Library/LaunchAgents/com.cc-hud.menubar.plist
+        mkdir -p ~/Library/LaunchAgents
+        /usr/libexec/PlistBuddy -c "Clear dict" "$PLIST" 2>/dev/null || true
+        /usr/libexec/PlistBuddy -c "Add :Label string com.cc-hud.menubar" "$PLIST"
+        /usr/libexec/PlistBuddy -c "Add :ProgramArguments array" "$PLIST"
+        /usr/libexec/PlistBuddy -c "Add :ProgramArguments:0 string /usr/bin/open" "$PLIST"
+        /usr/libexec/PlistBuddy -c "Add :ProgramArguments:1 string -a" "$PLIST"
+        /usr/libexec/PlistBuddy -c "Add :ProgramArguments:2 string /Applications/CCMenubar.app" "$PLIST"
+        /usr/libexec/PlistBuddy -c "Add :RunAtLoad bool true" "$PLIST"
+        /usr/libexec/PlistBuddy -c "Add :KeepAlive bool false" "$PLIST"
+        launchctl load "$PLIST" 2>/dev/null || true
+        echo "Auto-start enabled. CCMenubar will launch on login."
     }
 
     case "{{component}}" in
@@ -92,16 +105,28 @@ install component="all":
             install_statusline
             echo ""
             install_menubar
+            if [ "{{autostart}}" = "autostart" ]; then
+                enable_autostart
+            else
+                echo ""
+                echo "To launch automatically on login: just autostart enable"
+            fi
             ;;
         menubar)
             install_menubar
+            if [ "{{autostart}}" = "autostart" ]; then
+                enable_autostart
+            else
+                echo ""
+                echo "To launch automatically on login: just autostart enable"
+            fi
             ;;
         statusline)
             install_statusline
             ;;
         *)
             echo "Unknown component: {{component}}"
-            echo "Usage: just install [all|menubar|statusline]"
+            echo "Usage: just install [all|menubar|statusline] [autostart]"
             exit 1
             ;;
     esac
