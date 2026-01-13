@@ -37,16 +37,11 @@ struct SessionRowView: View {
 
             Text(session.projectName)
                 .font(.system(size: 12, weight: .medium, design: .monospaced))
-                .frame(width: 120, alignment: .leading)
-                .lineLimit(1)
-
-            Text(session.abbreviatedPath)
-                .font(.system(size: 11, design: .monospaced))
-                .foregroundColor(.secondary)
                 .lineLimit(1)
 
             if let branch = session.gitBranch, !branch.isEmpty {
-                Text("(\(branch))")
+                let displayBranch = branch.count > 24 ? String(branch.prefix(24)) + "…" : branch
+                Text("(\(displayBranch))")
                     .font(.system(size: 11, design: .monospaced))
                     .foregroundColor(.secondary)
                     .lineLimit(1)
