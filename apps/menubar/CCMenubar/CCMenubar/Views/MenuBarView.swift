@@ -23,7 +23,7 @@ struct MenuBarView: View {
                     VStack(alignment: .leading, spacing: 0) {
                         // Section header
                         Text(group.parent)
-                            .font(.system(size: 10, weight: .medium, design: .monospaced))
+                            .font(.system(size: 12, weight: .semibold, design: .monospaced))
                             .foregroundColor(.secondary)
                             .padding(.horizontal, 8)
                             .padding(.top, 6)
