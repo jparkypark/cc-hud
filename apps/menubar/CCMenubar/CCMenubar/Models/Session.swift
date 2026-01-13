@@ -19,8 +19,14 @@ struct Session: Identifiable, Codable {
         URL(fileURLWithPath: cwd).lastPathComponent
     }
 
+    /// Path displayed as parent/project (e.g., "repos/cc-hud" instead of "~/repos/cc-hud")
     var abbreviatedPath: String {
-        cwd.replacingOccurrences(of: NSHomeDirectory(), with: "~")
+        let components = cwd.split(separator: "/").map(String.init)
+        guard components.count >= 2 else {
+            return cwd.replacingOccurrences(of: NSHomeDirectory(), with: "~")
+        }
+        // Return last two components: parent/project
+        return components.suffix(2).joined(separator: "/")
     }
 
     var timeSinceLastActivity: String {

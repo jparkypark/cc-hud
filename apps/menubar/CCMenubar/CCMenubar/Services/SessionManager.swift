@@ -11,6 +11,9 @@ class SessionManager {
     /// Database client for reading session data.
     private let dbClient = DatabaseClient()
 
+    /// Timer for periodic UI refresh (updates time display).
+    private var refreshTimer: Timer?
+
     /// Path to the discovery script, loaded from config.
     private let discoveryScriptPath: String? = {
         let configPath = FileManager.default.homeDirectoryForCurrentUser
@@ -27,13 +30,28 @@ class SessionManager {
 
     init() {
         refresh()
+        startRefreshTimer()
+    }
+
+    /// Starts a timer to refresh the UI every 60 seconds.
+    private func startRefreshTimer() {
+        refreshTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
+            self?.refreshUI()
+        }
+    }
+
+    /// Triggers a UI refresh without re-running discovery.
+    private func refreshUI() {
+        // Re-assign to trigger @Observable update for computed properties
+        let current = sessions
+        sessions = current
     }
 
     /// Refreshes the session list from the database.
     /// First runs discovery to find any running sessions not yet registered.
     func refresh() {
         discoverSessions()
-        sessions = dbClient.getAllSessions()
+        sessions = dbClient.getAllSessions().sorted { $0.abbreviatedPath < $1.abbreviatedPath }
     }
 
     /// Runs the discovery script to find running Claude sessions.
@@ -66,7 +84,7 @@ class SessionManager {
                 sessions[index].status = SessionStatus(rawValue: event.status ?? "unknown") ?? .unknown
                 sessions[index].lastSeenAt = Date()
             } else {
-                // Add new session at the beginning (most recent)
+                // Add new session and maintain alphabetical order
                 let session = Session(
                     sessionId: event.sessionId,
                     cwd: event.cwd,
@@ -75,7 +93,8 @@ class SessionManager {
                     firstSeenAt: Int64(Date().timeIntervalSince1970 * 1000),
                     lastSeenAt: Int64(Date().timeIntervalSince1970 * 1000)
                 )
-                sessions.insert(session, at: 0)
+                sessions.append(session)
+                sessions.sort { $0.abbreviatedPath < $1.abbreviatedPath }
             }
         case "end":
             // Remove the session from the list
