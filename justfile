@@ -24,6 +24,8 @@ install component="all":
     }
 
     install_menubar() {
+        echo "Writing menubar config..."
+        echo '{"hooksDir": "{{justfile_directory()}}/hooks"}' > ~/.claude/cc-hud-menubar.json
         echo "Building CCMenubar..."
         xcodebuild -project apps/menubar/CCMenubar/CCMenubar.xcodeproj \
             -scheme CCMenubar \

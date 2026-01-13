@@ -130,6 +130,16 @@ The menu bar app uses Claude Code hooks to track sessions. Add to your `~/.claud
         ]
       }
     ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/path/to/cc-hud/hooks/prompt-submit.sh"
+          }
+        ]
+      }
+    ],
     "Notification": [
       {
         "matcher": "idle_prompt",
@@ -167,6 +177,7 @@ The menu bar app uses Claude Code hooks to track sessions. Add to your `~/.claud
 | Hook | Trigger | Action |
 |------|---------|--------|
 | `SessionStart` | Session starts | Registers session as "working" (yellow) |
+| `UserPromptSubmit` | User sends a message | Updates to "working" (yellow) |
 | `Notification` | Claude waiting for input | Updates to "waiting" (green) |
 | `Stop` | Session ends | Removes from menu bar |
 

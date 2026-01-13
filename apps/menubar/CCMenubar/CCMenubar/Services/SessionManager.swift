@@ -11,13 +11,48 @@ class SessionManager {
     /// Database client for reading session data.
     private let dbClient = DatabaseClient()
 
+    /// Path to the discovery script, loaded from config.
+    private let discoveryScriptPath: String? = {
+        let configPath = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".claude/cc-hud-menubar.json")
+
+        guard let data = try? Data(contentsOf: configPath),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let hooksDir = json["hooksDir"] as? String else {
+            return nil
+        }
+
+        return "\(hooksDir)/discover-sessions.sh"
+    }()
+
     init() {
         refresh()
     }
 
     /// Refreshes the session list from the database.
+    /// First runs discovery to find any running sessions not yet registered.
     func refresh() {
+        discoverSessions()
         sessions = dbClient.getAllSessions()
+    }
+
+    /// Runs the discovery script to find running Claude sessions.
+    private func discoverSessions() {
+        guard let scriptPath = discoveryScriptPath else {
+            print("[CCMenubar] Discovery script path not configured")
+            return
+        }
+
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/bash")
+        process.arguments = [scriptPath]
+
+        do {
+            try process.run()
+            process.waitUntilExit()
+        } catch {
+            print("[CCMenubar] Failed to run discovery script: \(error)")
+        }
     }
 
     /// Handles a session event received via HTTP from the hooks.
