@@ -14,23 +14,23 @@ Both applications share a SQLite database for session state.
 ## System Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│ Claude Code                                                             │
-│                                                                         │
-│  ┌──────────────────┐    ┌──────────────────┐    ┌──────────────────┐  │
-│  │ SessionStart     │    │ Notification     │    │ Stop             │  │
-│  │ Hook             │    │ Hook (idle)      │    │ Hook             │  │
-│  └────────┬─────────┘    └────────┬─────────┘    └────────┬─────────┘  │
-│           │                       │                       │             │
-└───────────┼───────────────────────┼───────────────────────┼─────────────┘
-            │                       │                       │
-            ▼                       ▼                       ▼
-     ┌──────────────────────────────────────────────────────────┐
-     │ Hook Scripts (hooks/)                                     │
-     │                                                           │
-     │  1. Write to SQLite (blocking)                            │
-     │  2. POST to HTTP (fire-and-forget)                        │
-     └─────────────────┬────────────────────────┬────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│ Claude Code                                                                         │
+│                                                                                     │
+│  ┌─────────────┐  ┌─────────────────┐  ┌──────────────┐  ┌──────────────────────┐  │
+│  │SessionStart │  │UserPromptSubmit │  │ Notification │  │ Stop                 │  │
+│  │ Hook        │  │ Hook            │  │ Hook (idle)  │  │ Hook                 │  │
+│  └──────┬──────┘  └───────┬─────────┘  └──────┬───────┘  └──────────┬───────────┘  │
+│         │                 │                   │                     │               │
+└─────────┼─────────────────┼───────────────────┼─────────────────────┼───────────────┘
+          │                 │                   │                     │
+          ▼                 ▼                   ▼                     ▼
+     ┌────────────────────────────────────────────────────────────────────────────┐
+     │ Hook Scripts (hooks/)                                                      │
+     │                                                                            │
+     │  1. Write to SQLite (blocking)                                             │
+     │  2. POST to HTTP (fire-and-forget)                                         │
+     └───────────────────────────────┬────────────────────────┬───────────────────┘
                        │                        │
                        ▼                        ▼
 ┌──────────────────────────────┐    ┌──────────────────────────────┐
@@ -101,8 +101,10 @@ cc-hud/
 ├── hooks/                        # Claude Code hooks
 │   ├── lib.sh                    # Shared functions
 │   ├── session-start.sh          # SessionStart hook
+│   ├── prompt-submit.sh          # UserPromptSubmit hook
 │   ├── session-update.sh         # Notification (idle_prompt) hook
-│   └── session-end.sh            # Stop hook
+│   ├── session-end.sh            # Stop hook
+│   └── discover-sessions.sh      # Discovers running sessions on refresh
 │
 └── docs/
     ├── DESIGN.md
@@ -129,31 +131,31 @@ CREATE TABLE hud_sessions (
 ## Session Lifecycle
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                           Session Lifecycle                                  │
-└─────────────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│                              Session Lifecycle                                    │
+└──────────────────────────────────────────────────────────────────────────────────┘
 
-  User starts          Claude               User sends           Session
-  Claude Code          responds             message              ends
-       │                  │                    │                   │
-       ▼                  ▼                    ▼                   ▼
-  ┌─────────┐        ┌─────────┐         ┌─────────┐         ┌─────────┐
-  │SessionStart│      │Notification│       │ (no hook)│        │  Stop   │
-  │  Hook     │      │  Hook     │       │         │        │  Hook   │
-  └────┬──────┘      └────┬──────┘       └─────────┘        └────┬────┘
-       │                  │                                      │
-       ▼                  ▼                                      ▼
-  status=working     status=waiting                         DELETE row
-  (yellow dot)       (green dot)                            (disappears)
+  User starts        User sends         Claude             User sends       Session
+  Claude Code        message            responds           message          ends
+       │                 │                 │                  │               │
+       ▼                 ▼                 ▼                  ▼               ▼
+  ┌──────────┐    ┌────────────┐    ┌────────────┐    ┌────────────┐    ┌────────┐
+  │SessionStart│    │UserPrompt │    │Notification│    │UserPrompt │    │  Stop  │
+  │  Hook     │    │Submit Hook│    │  Hook      │    │Submit Hook│    │  Hook  │
+  └─────┬─────┘    └─────┬──────┘    └─────┬──────┘    └─────┬──────┘    └────┬───┘
+        │                │                 │                 │                │
+        ▼                ▼                 ▼                 ▼                ▼
+   working           working           waiting           working          DELETE
+   (yellow)          (yellow)          (green)           (yellow)
 
-  ───────────────────────────────────────────────────────────────────────────►
-                                  Time
+  ────────────────────────────────────────────────────────────────────────────────►
+                                       Time
 ```
 
 **State transitions:**
 1. Session starts → `working` (yellow) - Claude is processing
-2. Claude responds, waits for input → `waiting` (green) - Ready for user
-3. User sends message → `working` (yellow) - Back to processing
+2. User sends message → `working` (yellow) - Claude is processing
+3. Claude responds, waits for input → `waiting` (green) - Ready for user
 4. Session ends → Removed from menu bar
 
 ## Component Details
@@ -187,6 +189,19 @@ git_branch=$(get_git_branch "$cwd")
 
 db_upsert_session "$session_id" "$cwd" "$git_branch" "working"
 notify_menubar "start" "$session_id" "$cwd" "$git_branch" "working"
+```
+
+**prompt-submit.sh** - Called on UserPromptSubmit:
+```bash
+#!/bin/bash
+source "$(dirname "$0")/lib.sh"
+
+session_id="$CLAUDE_SESSION_ID"
+cwd="$CLAUDE_WORKING_DIRECTORY"
+git_branch=$(get_git_branch "$cwd")
+
+db_upsert_session "$session_id" "$cwd" "$git_branch" "working"
+notify_menubar "update" "$session_id" "$cwd" "$git_branch" "working"
 ```
 
 **session-update.sh** - Called on Notification (idle_prompt):
@@ -246,9 +261,16 @@ Native macOS app built with SwiftUI.
 - **SessionRowView.swift** - Individual session row
 
 **Data Flow:**
-1. On startup: Read all sessions from SQLite database
+1. On startup: Discover running sessions, read from SQLite database
 2. On HTTP POST: Parse JSON, update in-memory session array
-3. On Refresh click: Re-read database
+3. On Refresh click: Discover sessions, re-read database
+4. Every 60 seconds: Refresh UI to update time display
+
+**Session Discovery:**
+- Runs `hooks/discover-sessions.sh` on startup and refresh
+- Finds running Claude processes via `ps` and `lsof`
+- Extracts session ID from most recent transcript file
+- Registers sessions with "unknown" status (hooks will correct it)
 
 **HTTP Server:**
 - Listens on `localhost:19222`

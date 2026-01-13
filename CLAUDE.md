@@ -20,4 +20,5 @@ just install statusline   # Install dependencies
 - Statusline entry: `apps/statusline/src/index.ts`
 - Menubar entry: `apps/menubar/CCMenubar/CCMenubar/CCMenubarApp.swift`
 - Hooks: `hooks/*.sh` (write to SQLite + POST to menubar HTTP server on :19222)
-- Config: `~/.claude/cc-hud.json`
+- Statusline config: `~/.claude/cc-hud.json`
+- Menubar config: `~/.claude/cc-hud-menubar.json` (written by `just install menubar`)
