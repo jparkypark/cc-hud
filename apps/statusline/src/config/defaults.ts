@@ -1,5 +1,5 @@
 /**
- * Default configuration for cc-hud
+ * Default configuration for cchud
  */
 
 import type { Config } from './types';

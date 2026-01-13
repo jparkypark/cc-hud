@@ -1,5 +1,5 @@
 /**
- * Theme color presets for cc-hud
+ * Theme color presets for cchud
  */
 
 import type { SegmentColors, ThemeMode, SegmentType, ThemeColorOverrides } from './types';

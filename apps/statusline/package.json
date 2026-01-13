@@ -1,10 +1,10 @@
 {
-  "name": "cc-hud",
+  "name": "cchud",
   "version": "0.1.0",
   "description": "A customizable heads-up display for Claude Code with live daily totals, flexible segment ordering, and powerline styling",
   "type": "module",
   "bin": {
-    "cc-hud": "src/index.ts"
+    "cchud": "src/index.ts"
   },
   "scripts": {
     "dev": "bun run src/index.ts",

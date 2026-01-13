@@ -74,9 +74,9 @@ export class DirectorySegment extends Segment {
 
       case 'parent': {
         // Show path relative to parent of git repository root
-        // e.g., if git root is /Users/jp/repos/cc-hud
-        //       and cwd is /Users/jp/repos/cc-hud/src/segments
-        //       show: repos/cc-hud/src/segments
+        // e.g., if git root is /Users/jp/repos/cchud
+        //       and cwd is /Users/jp/repos/cchud/src/segments
+        //       show: repos/cchud/src/segments
 
         if (gitRoot && cwd.startsWith(gitRoot)) {
           const gitRootParts = gitRoot.split('/').filter(p => p);

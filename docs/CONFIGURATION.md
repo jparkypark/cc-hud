@@ -1,6 +1,6 @@
 # Statusline Configuration
 
-Complete configuration reference for cc-hud statusline.
+Complete configuration reference for cchud statusline.
 
 ## Setup
 
@@ -19,18 +19,18 @@ The `configure` command updates `~/.claude/settings.json` with the statusLine se
 {
   "statusLine": {
     "type": "command",
-    "command": "bun /path/to/cc-hud/apps/statusline/src/index.ts"
+    "command": "bun /path/to/cchud/apps/statusline/src/index.ts"
   }
 }
 ```
 
 ## Statusline Config
 
-Config file location: `~/.claude/cc-hud.json`
+Config file location: `~/.claude/cchud.json`
 
 ## Minimal Configuration
 
-cc-hud works with sensible defaults. A minimal config:
+cchud works with sensible defaults. A minimal config:
 
 ```json
 {
@@ -180,10 +180,10 @@ Current working directory with flexible path display.
 | `rootWarning` | boolean | `false` | Show warning when not in git root |
 
 **Path modes:**
-- `"name"` - Directory name only: `cc-hud`
-- `"full"` - Full path with ~: `~/repos/cc-hud`
-- `"project"` - From git root: `cc-hud/src`
-- `"parent"` - Parent + name: `repos/cc-hud`
+- `"name"` - Directory name only: `cchud`
+- `"full"` - Full path with ~: `~/repos/cchud`
+- `"project"` - From git root: `cchud/src`
+- `"parent"` - Parent + name: `repos/cchud`
 
 ---
 

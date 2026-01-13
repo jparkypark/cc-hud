@@ -1,5 +1,5 @@
 /**
- * System theme detection for cc-hud
+ * System theme detection for cchud
  */
 
 import { execSync } from 'child_process';

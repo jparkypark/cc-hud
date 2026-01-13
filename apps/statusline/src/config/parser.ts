@@ -11,7 +11,7 @@ import { validateConfig } from './validator';
 import { detectSystemTheme } from './detect';
 import { getThemeColors, mergeThemeColors } from './themes';
 
-const CONFIG_PATH = join(homedir(), '.claude', 'cc-hud.json');
+const CONFIG_PATH = join(homedir(), '.claude', 'cchud.json');
 
 /**
  * Deep merge two objects
@@ -49,7 +49,7 @@ export function loadConfig(): Config {
   // Check if config file exists
   if (!existsSync(CONFIG_PATH)) {
     console.error(
-      `[cc-hud] Config file not found at ${CONFIG_PATH}, using defaults`
+      `[cchud] Config file not found at ${CONFIG_PATH}, using defaults`
     );
     userConfig = undefined;
   } else {
@@ -63,15 +63,15 @@ export function loadConfig(): Config {
     } catch (error) {
       if (error instanceof SyntaxError) {
         console.error(
-          `[cc-hud] Invalid JSON in config file: ${error.message}`
+          `[cchud] Invalid JSON in config file: ${error.message}`
         );
       } else if (error instanceof Error) {
-        console.error(`[cc-hud] Config validation error: ${error.message}`);
+        console.error(`[cchud] Config validation error: ${error.message}`);
       } else {
-        console.error(`[cc-hud] Failed to load config: ${error}`);
+        console.error(`[cchud] Failed to load config: ${error}`);
       }
 
-      console.error('[cc-hud] Falling back to default configuration');
+      console.error('[cchud] Falling back to default configuration');
       userConfig = undefined;
     }
   }

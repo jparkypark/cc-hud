@@ -1,10 +1,10 @@
 # Architecture
 
-This document describes the technical implementation of cc-hud.
+This document describes the technical implementation of cchud.
 
 ## Overview
 
-cc-hud is a monorepo containing two applications:
+cchud is a monorepo containing two applications:
 
 1. **Statusline** (TypeScript/Bun) - A command-line tool that renders a customizable status bar for Claude Code
 2. **cchud Overlay** (Swift/SwiftUI) - A native macOS app that displays all active Claude Code sessions
@@ -44,7 +44,7 @@ Both applications share a SQLite database for session state.
             ▼                                    ▼
 ┌──────────────────────────────┐    ┌──────────────────────────────┐
 │ Statusline (TypeScript)      │    │ cchud Overlay (Swift)         │
-│ apps/statusline/             │    │ apps/menubar/                │
+│ apps/statusline/             │    │ apps/overlay/                │
 │                              │    │                              │
 │ Reads DB for session info    │    │ Reads DB on startup/refresh  │
 │ Renders status bar           │    │ Uses HTTP for instant updates│
@@ -54,7 +54,7 @@ Both applications share a SQLite database for session state.
 ## Project Structure
 
 ```
-cc-hud/
+cchud/
 ├── apps/
 │   ├── statusline/               # TypeScript statusline app
 │   │   ├── src/
@@ -235,7 +235,7 @@ TypeScript application that renders the Claude Code status bar.
 
 **Data Flow:**
 1. Receives JSON from Claude Code via stdin
-2. Loads config from `~/.claude/cc-hud.json`
+2. Loads config from `~/.claude/cchud.json`
 3. Fetches usage data (ccusage + Codex CLI)
 4. Calculates EWMA pace from transcript files
 5. Renders segments with powerline styling
@@ -246,7 +246,7 @@ TypeScript application that renders the Claude Code status bar.
 - **EWMA Calculator** - Smoothed pace calculation with configurable half-life
 - **Powerline Renderer** - Supports background and text-only color modes
 
-### 3. cchud Overlay (apps/menubar/)
+### 3. cchud Overlay (apps/overlay/)
 
 Native macOS app built with SwiftUI.
 

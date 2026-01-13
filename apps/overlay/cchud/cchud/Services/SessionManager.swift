@@ -17,7 +17,7 @@ class SessionManager {
     /// Path to the discovery script, loaded from config.
     private let discoveryScriptPath: String? = {
         let configPath = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".claude/cc-hud-menubar.json")
+            .appendingPathComponent(".claude/cchud-overlay.json")
 
         guard let data = try? Data(contentsOf: configPath),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],

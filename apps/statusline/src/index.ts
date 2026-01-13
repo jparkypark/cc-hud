@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 
 /**
- * cc-hud - Customizable heads-up display for Claude Code
+ * cchud - Customizable heads-up display for Claude Code
  */
 
 import { loadConfig } from './config';
@@ -72,7 +72,7 @@ async function main() {
     db.close();
   } catch (error) {
     // Log errors to stderr (not stdout, to avoid breaking statusline)
-    console.error('[cc-hud] Error:', error);
+    console.error('[cchud] Error:', error);
 
     // Output empty string on error (graceful degradation)
     console.log('');

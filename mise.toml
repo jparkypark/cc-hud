@@ -1,4 +1,4 @@
-# cc-hud mise configuration
+# cchud mise configuration
 
 [tasks.install]
 description = "Install components"
@@ -25,9 +25,9 @@ install_statusline() {
 
 install_menubar() {
     echo "Writing menubar config..."
-    echo "{\"hooksDir\": \"$ROOT_DIR/hooks\"}" > ~/.claude/cc-hud-menubar.json
+    echo "{\"hooksDir\": \"$ROOT_DIR/hooks\"}" > ~/.claude/cchud-overlay.json
     echo "Building cchud..."
-    xcodebuild -project "$ROOT_DIR/apps/menubar/cchud/cchud.xcodeproj" \\
+    xcodebuild -project "$ROOT_DIR/apps/overlay/cchud/cchud.xcodeproj" \\
         -scheme cchud \\
         -configuration Debug \\
         build \\
@@ -42,10 +42,10 @@ install_menubar() {
 }
 
 enable_autostart() {
-    PLIST=~/Library/LaunchAgents/com.cc-hud.menubar.plist
+    PLIST=~/Library/LaunchAgents/com.cchud.menubar.plist
     mkdir -p ~/Library/LaunchAgents
     /usr/libexec/PlistBuddy -c "Clear dict" "$PLIST" 2>/dev/null || true
-    /usr/libexec/PlistBuddy -c "Add :Label string com.cc-hud.menubar" "$PLIST"
+    /usr/libexec/PlistBuddy -c "Add :Label string com.cchud.menubar" "$PLIST"
     /usr/libexec/PlistBuddy -c "Add :ProgramArguments array" "$PLIST"
     /usr/libexec/PlistBuddy -c "Add :ProgramArguments:0 string /usr/bin/open" "$PLIST"
     /usr/libexec/PlistBuddy -c "Add :ProgramArguments:1 string -a" "$PLIST"
@@ -84,7 +84,7 @@ esac
 """
 
 [tasks.configure]
-description = "Configure Claude Code to use cc-hud statusline"
+description = "Configure Claude Code to use cchud statusline"
 dir = "{{config_root}}"
 run = """
 #!/usr/bin/env bash
@@ -140,13 +140,13 @@ run = """
 set -euo pipefail
 
 ACTION="${usage_action:-enable}"
-PLIST=~/Library/LaunchAgents/com.cc-hud.menubar.plist
+PLIST=~/Library/LaunchAgents/com.cchud.menubar.plist
 
 case "$ACTION" in
     enable)
         mkdir -p ~/Library/LaunchAgents
         /usr/libexec/PlistBuddy -c "Clear dict" "$PLIST" 2>/dev/null || true
-        /usr/libexec/PlistBuddy -c "Add :Label string com.cc-hud.menubar" "$PLIST"
+        /usr/libexec/PlistBuddy -c "Add :Label string com.cchud.menubar" "$PLIST"
         /usr/libexec/PlistBuddy -c "Add :ProgramArguments array" "$PLIST"
         /usr/libexec/PlistBuddy -c "Add :ProgramArguments:0 string /usr/bin/open" "$PLIST"
         /usr/libexec/PlistBuddy -c "Add :ProgramArguments:1 string -a" "$PLIST"

@@ -3,7 +3,7 @@
 Monorepo with two apps for monitoring Claude Code sessions:
 
 - **Statusline** (`apps/statusline/`) - TypeScript/Bun, renders status bar in Claude Code
-- **cchud** (`apps/menubar/`) - Swift/SwiftUI, native macOS overlay for viewing all sessions
+- **cchud** (`apps/overlay/`) - Swift/SwiftUI, native macOS overlay for viewing all sessions
 
 Both share SQLite at `~/.claude/statusline-usage.db`.
 
@@ -21,7 +21,7 @@ mise run autostart [enable|disable|status]  # Manage auto-start
 ## Key Files
 
 - Statusline entry: `apps/statusline/src/index.ts`
-- cchud entry: `apps/menubar/cchud/cchud/cchudApp.swift`
+- cchud entry: `apps/overlay/cchud/cchud/cchudApp.swift`
 - Hooks: `hooks/*.sh` (write to SQLite + POST to cchud HTTP server on :19222)
-- Statusline config: `~/.claude/cc-hud.json`
-- cchud config: `~/.claude/cc-hud-menubar.json` (written by `mise run install menubar`)
+- Statusline config: `~/.claude/cchud.json`
+- cchud config: `~/.claude/cchud-overlay.json` (written by `mise run install menubar`)

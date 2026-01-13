@@ -10,7 +10,7 @@ import { join } from 'path';
 import { homedir } from 'os';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 
-const CACHE_DIR = join(homedir(), '.cache', 'cc-hud');
+const CACHE_DIR = join(homedir(), '.cache', 'cchud');
 const THOUGHTS_STATE_FILE = join(CACHE_DIR, 'thoughts-state.json');
 const QUOTES_CACHE_FILE = join(CACHE_DIR, 'quotes-cache.json');
 
@@ -146,7 +146,7 @@ export class ThoughtsSegment extends Segment {
         return JSON.parse(data);
       }
     } catch (error) {
-      console.error('[cc-hud] Failed to load thoughts state:', error);
+      console.error('[cchud] Failed to load thoughts state:', error);
     }
 
     // Default state
@@ -168,7 +168,7 @@ export class ThoughtsSegment extends Segment {
 
       writeFileSync(THOUGHTS_STATE_FILE, JSON.stringify(this.state, null, 2));
     } catch (error) {
-      console.error('[cc-hud] Failed to save thoughts state:', error);
+      console.error('[cchud] Failed to save thoughts state:', error);
     }
   }
 
@@ -182,7 +182,7 @@ export class ThoughtsSegment extends Segment {
         return JSON.parse(data);
       }
     } catch (error) {
-      console.error('[cc-hud] Failed to load quotes cache:', error);
+      console.error('[cchud] Failed to load quotes cache:', error);
     }
 
     return {
@@ -202,7 +202,7 @@ export class ThoughtsSegment extends Segment {
 
       writeFileSync(QUOTES_CACHE_FILE, JSON.stringify(cache, null, 2));
     } catch (error) {
-      console.error('[cc-hud] Failed to save quotes cache:', error);
+      console.error('[cchud] Failed to save quotes cache:', error);
     }
   }
 
@@ -223,7 +223,7 @@ export class ThoughtsSegment extends Segment {
       // Format: [{ q: "quote text", a: "author" }, ...]
       return data.map((item) => `${item.q} - ${item.a}`);
     } catch (error) {
-      console.error('[cc-hud] Failed to fetch quotes from API:', error);
+      console.error('[cchud] Failed to fetch quotes from API:', error);
       return [];
     }
   }
