@@ -19,11 +19,7 @@ install_statusline() {
     cd "$ROOT_DIR/apps/statusline" && bun install
     echo "Statusline installed."
     echo ""
-    echo "Configure Claude Code by adding to ~/.claude/settings.json:"
-    echo '  "statusLine": {'
-    echo '    "type": "command",'
-    echo "    \"command\": \"bun $ROOT_DIR/apps/statusline/src/index.ts\""
-    echo '  }'
+    echo "To configure Claude Code automatically: mise run configure"
 }
 
 install_menubar() {
@@ -84,6 +80,52 @@ case "$COMPONENT" in
         install_statusline
         ;;
 esac
+"""
+
+[tasks.configure]
+description = "Configure Claude Code to use cc-hud statusline"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SETTINGS_FILE="$HOME/.claude/settings.json"
+STATUSLINE_CMD="bun $ROOT_DIR/apps/statusline/src/index.ts"
+
+# Ensure ~/.claude directory exists
+mkdir -p "$HOME/.claude"
+
+# Check if jq is available
+if ! command -v jq &> /dev/null; then
+    echo "Error: jq is required but not installed."
+    echo "Install with: brew install jq"
+    exit 1
+fi
+
+# Create settings file if it doesn't exist
+if [ ! -f "$SETTINGS_FILE" ]; then
+    echo '{}' > "$SETTINGS_FILE"
+fi
+
+# Check if statusLine is already configured
+if jq -e '.statusLine' "$SETTINGS_FILE" > /dev/null 2>&1; then
+    CURRENT_CMD=$(jq -r '.statusLine.command // empty' "$SETTINGS_FILE")
+    if [ "$CURRENT_CMD" = "$STATUSLINE_CMD" ]; then
+        echo "Statusline already configured correctly."
+        exit 0
+    fi
+    echo "Updating existing statusLine configuration..."
+else
+    echo "Adding statusLine configuration..."
+fi
+
+# Update settings.json with statusLine config
+jq --arg cmd "$STATUSLINE_CMD" '.statusLine = {"type": "command", "command": $cmd}' "$SETTINGS_FILE" > "$SETTINGS_FILE.tmp"
+mv "$SETTINGS_FILE.tmp" "$SETTINGS_FILE"
+
+echo "Done. Claude Code statusline configured."
+echo ""
+echo "Restart Claude Code for changes to take effect."
 """
 
 [tasks.autostart]
