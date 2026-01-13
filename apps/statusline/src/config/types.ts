@@ -121,6 +121,20 @@ export interface TimeSegmentConfig {
   colors: SegmentColors;
 }
 
+// Context window segment
+export type ContextDisplayMode = 'used' | 'remaining' | 'both';
+
+export interface ContextSegmentDisplay {
+  icon: boolean;
+  mode: ContextDisplayMode;  // 'used' = show used %, 'remaining' = show remaining %, 'both' = show both
+}
+
+export interface ContextSegmentConfig {
+  type: 'context';
+  display: ContextSegmentDisplay;
+  colors: SegmentColors;
+}
+
 // Union type for all segment configs
 export type SegmentConfig =
   | UsageSegmentConfig
@@ -129,10 +143,11 @@ export type SegmentConfig =
   | GitSegmentConfig
   | ThoughtsSegmentConfig
   | PrSegmentConfig
-  | TimeSegmentConfig;
+  | TimeSegmentConfig
+  | ContextSegmentConfig;
 
 // Theme color overrides (partial - only specify segments you want to customize)
-export type SegmentType = 'directory' | 'git' | 'pr' | 'usage' | 'pace' | 'time' | 'thoughts';
+export type SegmentType = 'directory' | 'git' | 'pr' | 'usage' | 'pace' | 'time' | 'thoughts' | 'context';
 
 export type ThemeColorOverrides = Partial<Record<SegmentType, Partial<SegmentColors>>>;
 
@@ -156,5 +171,9 @@ export interface ClaudeCodeInput {
   session?: {
     id?: string;
     model?: string;
+  };
+  context_window?: {
+    used_percentage?: number;
+    remaining_percentage?: number;
   };
 }

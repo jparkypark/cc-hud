@@ -69,6 +69,17 @@ export const DEFAULT_CONFIG: Config = {
       },
     },
     {
+      type: 'context',
+      display: {
+        icon: true,
+        mode: 'used',  // Show context window used percentage
+      },
+      colors: {
+        fg: '#a5b4fc',
+        bg: '#6366f1',
+      },
+    },
+    {
       type: 'time',
       display: {
         icon: true,

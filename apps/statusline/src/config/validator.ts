@@ -5,7 +5,7 @@
 import type { Config, SeparatorStyle, ColorMode, ThemeMode, SegmentType } from './types';
 
 const VALID_SEGMENT_TYPES: SegmentType[] = [
-  'directory', 'git', 'pr', 'usage', 'pace', 'time', 'thoughts'
+  'directory', 'git', 'pr', 'usage', 'pace', 'time', 'thoughts', 'context'
 ];
 
 const VALID_SEPARATOR_STYLES: SeparatorStyle[] = [
@@ -230,6 +230,24 @@ function validateTimeSegment(segment: any): void {
   validateSegmentColors(segment.colors, 'time');
 }
 
+function validateContextSegment(segment: any): void {
+  if (!segment.display) {
+    throw new Error("Context segment must have 'display' config");
+  }
+
+  const { display } = segment;
+
+  if (typeof display.icon !== 'boolean') {
+    throw new Error("Context segment display.icon must be boolean");
+  }
+
+  if (!['used', 'remaining', 'both'].includes(display.mode)) {
+    throw new Error("Context segment display.mode must be 'used', 'remaining', or 'both'");
+  }
+
+  validateSegmentColors(segment.colors, 'context');
+}
+
 /**
  * Validate theme color overrides (darkTheme or lightTheme)
  */
@@ -313,9 +331,12 @@ export function validateConfig(config: any): asserts config is Partial<Config> {
         case 'time':
           validateTimeSegment(segment);
           break;
+        case 'context':
+          validateContextSegment(segment);
+          break;
         default:
           throw new Error(
-            `Unknown segment type '${segment.type}' at index ${i}. Valid types: usage, pace, directory, git, thoughts, pr, time`
+            `Unknown segment type '${segment.type}' at index ${i}. Valid types: ${VALID_SEGMENT_TYPES.join(', ')}`
           );
       }
     }
