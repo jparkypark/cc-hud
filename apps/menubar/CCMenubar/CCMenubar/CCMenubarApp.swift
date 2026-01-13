@@ -7,14 +7,17 @@
 
 import SwiftUI
 
-/// Coordinates the session manager and HTTP server lifecycle.
-/// Using a class allows us to wire up callbacks properly.
+/// Shared app state - singleton to ensure single instance across app delegate and SwiftUI
 @MainActor
-final class AppCoordinator {
+final class AppState {
+    static let shared = AppState()
+
     let sessionManager = SessionManager()
     let httpServer = HTTPServer()
+    let panelController = FloatingPanelController()
+    private var hasLaunched = false
 
-    init() {
+    private init() {
         httpServer.onSessionEvent = { [weak self] event in
             Task { @MainActor in
                 self?.sessionManager.handleEvent(event)
@@ -22,15 +25,47 @@ final class AppCoordinator {
         }
         httpServer.start()
     }
+
+    func showFloatingPanel() {
+        let panelView = FloatingPanelView(sessionManager: sessionManager) {
+            self.panelController.hidePanel()
+        }
+        panelController.showPanel(with: panelView)
+    }
+
+    func handleActivation() {
+        // Skip first activation (initial launch)
+        if !hasLaunched {
+            hasLaunched = true
+            return
+        }
+        showFloatingPanel()
+    }
+}
+
+/// App delegate to handle activation from Spotlight/Raycast
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    func applicationDidBecomeActive(_ notification: Notification) {
+        Task { @MainActor in
+            AppState.shared.handleActivation()
+        }
+    }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        Task { @MainActor in
+            AppState.shared.showFloatingPanel()
+        }
+        return false
+    }
 }
 
 @main
 struct CCMenubarApp: App {
-    @State private var coordinator = AppCoordinator()
+    @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     var body: some Scene {
         MenuBarExtra {
-            MenuBarView(sessionManager: coordinator.sessionManager)
+            MenuBarView(sessionManager: AppState.shared.sessionManager)
         } label: {
             Image(systemName: "terminal")
         }
