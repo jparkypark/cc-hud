@@ -14,6 +14,7 @@ enum PanelTab: String, CaseIterable {
 
 struct PanelContainerView: View {
     @State private var selectedTab: PanelTab = .sessions
+    @FocusState private var isFocused: Bool
     var sessionManager: SessionManager
     var onClose: () -> Void
 
@@ -53,6 +54,26 @@ struct PanelContainerView: View {
             }
         }
         .frame(width: 520, height: 720)
+        .focusable()
+        .focused($isFocused)
+        .onAppear {
+            isFocused = true
+        }
+        .onKeyPress(.tab) {
+            cycleTab()
+            return .handled
+        }
+        .onKeyPress(.escape) {
+            onClose()
+            return .handled
+        }
+    }
+
+    private func cycleTab() {
+        let allTabs = PanelTab.allCases
+        guard let currentIndex = allTabs.firstIndex(of: selectedTab) else { return }
+        let nextIndex = (currentIndex + 1) % allTabs.count
+        selectedTab = allTabs[nextIndex]
     }
 }
 
