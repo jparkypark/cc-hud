@@ -312,13 +312,13 @@ Context window usage percentage. Shows how much of Claude's context window has b
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `icon` | boolean | `true` | Show window symbol (◧) |
+| `icon` | boolean | `true` | Show gauge icon (▪▪▫▫▫) |
 | `mode` | string | `"used"` | Display mode (see below) |
 
 **Display modes:**
-- `"used"` - Show percentage of context used: `◧ 46%`
-- `"remaining"` - Show percentage remaining: `◧ 54%`
-- `"both"` - Show both values: `◧ 46%/54%`
+- `"used"` - Show percentage of context used: `▪▪▫▫▫ 46% used`
+- `"remaining"` - Show percentage remaining: `▪▪▪▫▫ 54% left`
+- `"both"` - Show both values: `▪▪▫▫▫ 46% / 54%`
 
 **Note:** This segment requires Claude Code to provide context window data. It will automatically hide when no data is available.
 

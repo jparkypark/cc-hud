@@ -31,7 +31,7 @@ A customizable status bar for Claude Code with live cost tracking, EWMA pace cal
 
 - **Live daily totals** - Accurate cost tracking (Claude Code + Codex CLI)
 - **EWMA pace calculation** - Smoothed hourly burn rate with configurable half-life
-- **7 segment types** - Usage, pace, directory, git, PR, time, and thoughts
+- **8 segment types** - Usage, pace, context, directory, git, PR, time, and thoughts
 - **Light/dark theme** - Auto-detects system theme or set manually
 - **Full customization** - Colors, segments, separator styles
 
@@ -87,9 +87,11 @@ A native macOS overlay app that displays all active Claude Code sessions. Launch
 
 ### Features
 
-- **See all sessions** - Monitor 3-5+ concurrent Claude Code sessions
-- **Status indicators** - Green (waiting for input), Yellow (working)
-- **Session metadata** - Project name, git branch, time since last activity
+- **Three tabs** - Sessions, Analytics, and PRs
+- **Sessions tab** - Monitor all active Claude Code sessions with status indicators
+- **Analytics tab** - Activity heatmap and project time breakdown
+- **PRs tab** - Merged pull requests for today/this week (requires `gh` CLI)
+- **Keyboard navigation** - Tab to cycle tabs, Escape to close
 - **Real-time updates** - Via Claude Code hooks
 - **Floating overlay** - Launch with Spotlight/Raycast, stays on top
 
@@ -98,6 +100,7 @@ A native macOS overlay app that displays all active Claude Code sessions. Launch
 - macOS 14.0+
 - Xcode 15+ (for building)
 - jq: `brew install jq`
+- Optional: `gh` CLI for PRs tab (`brew install gh`)
 
 ### Installation
 

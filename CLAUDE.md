@@ -3,7 +3,7 @@
 Monorepo with two apps for monitoring Claude Code sessions:
 
 - **Statusline** (`apps/statusline/`) - TypeScript/Bun, renders status bar in Claude Code
-- **chud** (`apps/overlay/`) - Swift/SwiftUI, native macOS overlay for viewing all sessions
+- **chud** (`apps/overlay/`) - Swift/SwiftUI, native macOS overlay with Sessions, Analytics, and PRs tabs
 
 Both share SQLite at `~/.claude/statusline-usage.db`.
 
