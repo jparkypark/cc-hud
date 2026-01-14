@@ -54,11 +54,11 @@ export class ContextSegment extends Segment {
 
     // Format based on display mode
     if (display.mode === 'used') {
-      parts.push(`${Math.round(used)}%`);
+      parts.push(`${Math.round(used)}% used`);
     } else if (display.mode === 'remaining') {
-      parts.push(`${Math.round(remaining)}%`);
+      parts.push(`${Math.round(remaining)}% left`);
     } else if (display.mode === 'both') {
-      parts.push(`${Math.round(used)}%/${Math.round(remaining)}%`);
+      parts.push(`${Math.round(used)}% / ${Math.round(remaining)}%`);
     }
 
     // If we only have icon and no data, return empty
