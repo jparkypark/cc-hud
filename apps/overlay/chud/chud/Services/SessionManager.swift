@@ -29,8 +29,20 @@ class SessionManager {
     }()
 
     init() {
+        cleanupStaleSessionsFromBeforeBoot()
         refresh()
         startRefreshTimer()
+    }
+
+    /// Cleans up sessions from before the current system boot.
+    /// This handles the case where the computer restarted but the database persisted.
+    private func cleanupStaleSessionsFromBeforeBoot() {
+        var boottime = timeval()
+        var size = MemoryLayout<timeval>.size
+        if sysctlbyname("kern.boottime", &boottime, &size, nil, 0) == 0 {
+            let bootTimeMs = Int64(boottime.tv_sec) * 1000 + Int64(boottime.tv_usec) / 1000
+            dbClient.deleteSessionsOlderThan(bootTimeMs)
+        }
     }
 
     /// Starts a timer to refresh the UI every 60 seconds.

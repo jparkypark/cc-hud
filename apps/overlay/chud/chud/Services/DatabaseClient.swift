@@ -30,6 +30,35 @@ class DatabaseClient {
         }
     }
 
+    /// Deletes sessions with last_seen_at older than the given timestamp.
+    /// - Parameter timestampMs: Unix timestamp in milliseconds
+    /// - Returns: Number of rows deleted
+    @discardableResult
+    func deleteSessionsOlderThan(_ timestampMs: Int64) -> Int {
+        guard open() else { return 0 }
+        defer { close() }
+
+        let query = "DELETE FROM hud_sessions WHERE last_seen_at < ?"
+        var statement: OpaquePointer?
+
+        guard sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK else {
+            print("[chud] Failed to prepare delete query")
+            return 0
+        }
+        defer { sqlite3_finalize(statement) }
+
+        sqlite3_bind_int64(statement, 1, timestampMs)
+
+        if sqlite3_step(statement) == SQLITE_DONE {
+            let deleted = Int(sqlite3_changes(db))
+            if deleted > 0 {
+                print("[chud] Cleaned up \(deleted) stale session(s)")
+            }
+            return deleted
+        }
+        return 0
+    }
+
     /// Retrieves all sessions from the database, ordered by most recent activity.
     /// - Returns: Array of Session objects, empty if database cannot be opened or query fails.
     func getAllSessions() -> [Session] {
