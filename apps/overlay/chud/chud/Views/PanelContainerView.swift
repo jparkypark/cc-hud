@@ -3,11 +3,13 @@ import SwiftUI
 enum PanelTab: String, CaseIterable {
     case sessions = "Sessions"
     case analytics = "Analytics"
+    case prs = "PRs"
 
     var icon: String {
         switch self {
         case .sessions: return "rectangle.stack"
         case .analytics: return "chart.bar.xaxis"
+        case .prs: return "arrow.triangle.merge"
         }
     }
 }
@@ -51,11 +53,14 @@ struct PanelContainerView: View {
                 SessionsContentView(sessionManager: sessionManager)
             case .analytics:
                 AnalyticsContentView()
+            case .prs:
+                PRsContentView()
             }
         }
         .frame(width: 520, height: 720)
         .focusable()
         .focused($isFocused)
+        .focusEffectDisabled()
         .onAppear {
             isFocused = true
         }
@@ -148,45 +153,47 @@ struct AnalyticsContentView: View {
     private let days = ["S", "M", "T", "W", "T", "F", "S"]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            // Time range picker
-            HStack {
-                Spacer()
-                Picker("Time Range", selection: $timeRange) {
-                    ForEach(TimeRange.allCases, id: \.self) { range in
-                        Text(range.label).tag(range)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                // Time range picker
+                HStack {
+                    Spacer()
+                    Picker("Time Range", selection: $timeRange) {
+                        ForEach(TimeRange.allCases, id: \.self) { range in
+                            Text(range.label).tag(range)
+                        }
                     }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .frame(width: 200)
                 }
-                .pickerStyle(.segmented)
-                .frame(width: 200)
-            }
-            .padding(.horizontal, 16)
-            .padding(.top, 12)
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
 
-            // Activity Heatmap
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Activity")
-                    .font(.system(size: 12, weight: .medium, design: .monospaced))
-                    .foregroundColor(.secondary)
+                // Activity Heatmap
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Activity")
+                        .font(.system(size: 12, weight: .medium, design: .monospaced))
+                        .foregroundColor(.secondary)
 
-                HeatmapGrid(data: heatmapData, days: days)
-            }
-            .padding(.horizontal, 16)
-
-            Divider()
+                    HeatmapGrid(data: heatmapData, days: days)
+                }
                 .padding(.horizontal, 16)
 
-            // Project Breakdown
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Projects")
-                    .font(.system(size: 12, weight: .medium, design: .monospaced))
-                    .foregroundColor(.secondary)
+                Divider()
+                    .padding(.horizontal, 16)
 
-                ProjectBreakdownChart(data: Array(projectData.prefix(8)))
+                // Project Breakdown
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Projects")
+                        .font(.system(size: 12, weight: .medium, design: .monospaced))
+                        .foregroundColor(.secondary)
+
+                    ProjectBreakdownChart(data: Array(projectData.prefix(8)))
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 16)
             }
-            .padding(.horizontal, 16)
-
-            Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onChange(of: timeRange) { _, newValue in
