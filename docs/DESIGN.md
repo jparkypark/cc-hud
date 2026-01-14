@@ -205,7 +205,7 @@ Where `effectiveWindow = halfLife / ln(2) ≈ 1.44 × halfLife`
         "pathMode": "parent",
         "rootWarning": false
       },
-      "colors": { "fg": "#ff6666", "bg": "#ec4899" }
+      "colors": { "fg": "#ffffff", "bg": "#ef4444" }
     },
     {
       "type": "git",
@@ -216,7 +216,7 @@ Where `effectiveWindow = halfLife / ln(2) ≈ 1.44 × halfLife`
         "ahead": true,
         "behind": true
       },
-      "colors": { "fg": "#ffbd55", "bg": "#f97316" }
+      "colors": { "fg": "#ffffff", "bg": "#f97316" }
     },
     {
       "type": "pr",
@@ -224,7 +224,7 @@ Where `effectiveWindow = halfLife / ln(2) ≈ 1.44 × halfLife`
         "icon": true,
         "number": true
       },
-      "colors": { "fg": "#ffff66", "bg": "#10b981" }
+      "colors": { "fg": "#ffffff", "bg": "#eab308" }
     },
     {
       "type": "usage",
@@ -234,7 +234,7 @@ Where `effectiveWindow = halfLife / ln(2) ≈ 1.44 × halfLife`
         "tokens": false,
         "period": "today"
       },
-      "colors": { "fg": "#9de24f", "bg": "#3b82f6" }
+      "colors": { "fg": "#ffffff", "bg": "#22c55e" }
     },
     {
       "type": "pace",
@@ -243,7 +243,15 @@ Where `effectiveWindow = halfLife / ln(2) ≈ 1.44 × halfLife`
         "period": "hourly",
         "halfLifeMinutes": 7
       },
-      "colors": { "fg": "#87cefa", "bg": "#9333ea" }
+      "colors": { "fg": "#ffffff", "bg": "#06b6d4" }
+    },
+    {
+      "type": "context",
+      "display": {
+        "icon": true,
+        "mode": "used"
+      },
+      "colors": { "fg": "#ffffff", "bg": "#3b82f6" }
     },
     {
       "type": "time",
@@ -252,7 +260,7 @@ Where `effectiveWindow = halfLife / ln(2) ≈ 1.44 × halfLife`
         "format": "12h",
         "seconds": false
       },
-      "colors": { "fg": "#c084fc", "bg": "#9333ea" }
+      "colors": { "fg": "#ffffff", "bg": "#6366f1" }
     },
     {
       "type": "thoughts",
@@ -260,7 +268,7 @@ Where `effectiveWindow = halfLife / ln(2) ≈ 1.44 × halfLife`
         "icon": true,
         "quotes": false
       },
-      "colors": { "fg": "#9ca3af", "bg": "#6b7280" },
+      "colors": { "fg": "#ffffff", "bg": "#8b5cf6" },
       "useApiQuotes": true
     }
   ],

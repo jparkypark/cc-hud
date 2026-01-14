@@ -48,42 +48,42 @@ chud works with sensible defaults. A minimal config:
     {
       "type": "directory",
       "display": { "icon": true, "pathMode": "parent" },
-      "colors": { "fg": "#ff6666", "bg": "#ec4899" }
+      "colors": { "fg": "#ffffff", "bg": "#ef4444" }
     },
     {
       "type": "git",
       "display": { "icon": true, "branch": true, "status": true },
-      "colors": { "fg": "#ffbd55", "bg": "#f97316" }
+      "colors": { "fg": "#ffffff", "bg": "#f97316" }
     },
     {
       "type": "pr",
       "display": { "icon": true, "number": true },
-      "colors": { "fg": "#ffff66", "bg": "#10b981" }
+      "colors": { "fg": "#ffffff", "bg": "#eab308" }
     },
     {
       "type": "usage",
       "display": { "icon": true, "cost": true, "tokens": false, "period": "today" },
-      "colors": { "fg": "#9de24f", "bg": "#3b82f6" }
+      "colors": { "fg": "#ffffff", "bg": "#22c55e" }
     },
     {
       "type": "pace",
       "display": { "icon": true, "period": "hourly", "halfLifeMinutes": 7 },
-      "colors": { "fg": "#87cefa", "bg": "#9333ea" }
+      "colors": { "fg": "#ffffff", "bg": "#06b6d4" }
     },
     {
       "type": "context",
       "display": { "icon": true, "mode": "remaining" },
-      "colors": { "fg": "#818cf8", "bg": "#4f46e5" }
+      "colors": { "fg": "#ffffff", "bg": "#3b82f6" }
     },
     {
       "type": "time",
       "display": { "icon": true, "format": "12h", "seconds": false },
-      "colors": { "fg": "#c084fc", "bg": "#9333ea" }
+      "colors": { "fg": "#ffffff", "bg": "#6366f1" }
     },
     {
       "type": "thoughts",
       "display": { "icon": true, "quotes": false },
-      "colors": { "fg": "#9ca3af", "bg": "#6b7280" },
+      "colors": { "fg": "#ffffff", "bg": "#8b5cf6" },
       "useApiQuotes": true
     }
   ],
