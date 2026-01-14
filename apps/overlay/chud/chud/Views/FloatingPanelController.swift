@@ -37,7 +37,7 @@ final class FloatingPanelController: NSObject {
     private func createPanel(with view: some View) {
         let panel = NSPanel(
             contentRect: NSRect(x: 0, y: 0, width: 520, height: 720),
-            styleMask: [.titled, .closable, .resizable, .nonactivatingPanel, .hudWindow],
+            styleMask: [.titled, .closable, .resizable, .nonactivatingPanel],
             backing: .buffered,
             defer: false
         )
@@ -48,6 +48,7 @@ final class FloatingPanelController: NSObject {
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.isMovableByWindowBackground = true
         panel.titlebarAppearsTransparent = false
+        panel.isOpaque = true
         panel.backgroundColor = .windowBackgroundColor
 
         // Hide when app deactivates
