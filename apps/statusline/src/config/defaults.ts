@@ -14,8 +14,8 @@ export const DEFAULT_CONFIG: Config = {
         rootWarning: false,
       },
       colors: {
-        fg: '#ff6666',
-        bg: '#ec4899',
+        fg: '#ffffff',
+        bg: '#ef4444',  // red-500
       },
     },
     {
@@ -28,8 +28,8 @@ export const DEFAULT_CONFIG: Config = {
         behind: true,
       },
       colors: {
-        fg: '#ffbd55',
-        bg: '#f97316',
+        fg: '#ffffff',
+        bg: '#f97316',  // orange-500
       },
     },
     {
@@ -39,8 +39,8 @@ export const DEFAULT_CONFIG: Config = {
         number: true,
       },
       colors: {
-        fg: '#ffff66',
-        bg: '#10b981',
+        fg: '#ffffff',
+        bg: '#eab308',  // yellow-500
       },
     },
     {
@@ -52,8 +52,8 @@ export const DEFAULT_CONFIG: Config = {
         period: 'today',
       },
       colors: {
-        fg: '#9de24f',
-        bg: '#3b82f6',
+        fg: '#ffffff',
+        bg: '#22c55e',  // green-500
       },
     },
     {
@@ -64,8 +64,8 @@ export const DEFAULT_CONFIG: Config = {
         halfLifeMinutes: 7,  // ~10 minute effective window for EWMA smoothing
       },
       colors: {
-        fg: '#87cefa',
-        bg: '#9333ea',
+        fg: '#ffffff',
+        bg: '#06b6d4',  // cyan-500
       },
     },
     {
@@ -75,8 +75,8 @@ export const DEFAULT_CONFIG: Config = {
         mode: 'used',  // Show context window used percentage
       },
       colors: {
-        fg: '#a5b4fc',
-        bg: '#6366f1',
+        fg: '#ffffff',
+        bg: '#3b82f6',  // blue-500
       },
     },
     {
@@ -87,8 +87,8 @@ export const DEFAULT_CONFIG: Config = {
         seconds: false,
       },
       colors: {
-        fg: '#c084fc',
-        bg: '#9333ea',
+        fg: '#ffffff',
+        bg: '#6366f1',  // indigo-500
       },
     },
     {
@@ -98,8 +98,8 @@ export const DEFAULT_CONFIG: Config = {
         quotes: false,
       },
       colors: {
-        fg: '#9ca3af',
-        bg: '#6b7280',
+        fg: '#ffffff',
+        bg: '#8b5cf6',  // violet-500
       },
       useApiQuotes: true,
     },

@@ -31,6 +31,10 @@ export const DARK_THEME_COLORS: ThemeColors = {
     fg: '#87cefa',
     bg: '#9333ea',
   },
+  context: {
+    fg: '#a5b4fc',
+    bg: '#6366f1',
+  },
   time: {
     fg: '#c084fc',
     bg: '#9333ea',
@@ -42,37 +46,41 @@ export const DARK_THEME_COLORS: ThemeColors = {
 };
 
 /**
- * Light theme - optimized for light terminal backgrounds
- * Bright rainbow colors with white text for contrast
+ * Light theme - Tailwind 500 rainbow colors
+ * Used as the default theme overall
  */
 export const LIGHT_THEME_COLORS: ThemeColors = {
   directory: {
-    fg: '#ff0000',  // bright red
-    bg: '#dc2626',
+    fg: '#ffffff',
+    bg: '#ef4444',  // red-500
   },
   git: {
-    fg: '#ff8000',  // bright orange
-    bg: '#ea580c',
+    fg: '#ffffff',
+    bg: '#f97316',  // orange-500
   },
   pr: {
-    fg: '#e6b800',  // bright yellow (darkened for readability)
-    bg: '#ca8a04',
+    fg: '#ffffff',
+    bg: '#eab308',  // yellow-500
   },
   usage: {
-    fg: '#00cc00',  // bright green
-    bg: '#16a34a',
+    fg: '#ffffff',
+    bg: '#22c55e',  // green-500
   },
   pace: {
-    fg: '#00b3b3',  // bright cyan
-    bg: '#0891b2',
+    fg: '#ffffff',
+    bg: '#06b6d4',  // cyan-500
+  },
+  context: {
+    fg: '#ffffff',
+    bg: '#3b82f6',  // blue-500
   },
   time: {
-    fg: '#0066ff',  // bright blue
-    bg: '#2563eb',
+    fg: '#ffffff',
+    bg: '#6366f1',  // indigo-500
   },
   thoughts: {
-    fg: '#8000ff',  // bright violet
-    bg: '#7c3aed',
+    fg: '#ffffff',
+    bg: '#8b5cf6',  // violet-500
   },
 };
 
