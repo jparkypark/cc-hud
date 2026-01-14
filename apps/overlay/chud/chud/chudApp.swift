@@ -26,10 +26,11 @@ final class AppState {
         httpServer.start()
     }
 
-    func showFloatingPanel() {
-        let panelView = FloatingPanelView(sessionManager: sessionManager) {
-            self.panelController.hidePanel()
-        }
+    func showPanel() {
+        let panelView = PanelContainerView(
+            sessionManager: sessionManager,
+            onClose: { self.panelController.hidePanel() }
+        )
         panelController.showPanel(with: panelView)
     }
 
@@ -39,7 +40,7 @@ final class AppState {
             hasLaunched = true
             return
         }
-        showFloatingPanel()
+        showPanel()
     }
 }
 
@@ -53,7 +54,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         Task { @MainActor in
-            AppState.shared.showFloatingPanel()
+            AppState.shared.showPanel()
         }
         return false
     }
@@ -67,8 +68,8 @@ struct chudApp: App {
         MenuBarExtra {
             MenuBarView(
                 sessionManager: AppState.shared.sessionManager,
-                onShowSessions: {
-                    AppState.shared.showFloatingPanel()
+                onShowPanel: {
+                    AppState.shared.showPanel()
                 }
             )
         } label: {

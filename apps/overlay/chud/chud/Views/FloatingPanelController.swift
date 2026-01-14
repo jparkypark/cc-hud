@@ -9,6 +9,10 @@ final class FloatingPanelController: NSObject {
     func showPanel(with view: some View) {
         if panel == nil {
             createPanel(with: view)
+        } else {
+            // Update content if panel already exists
+            let hostingView = NSHostingView(rootView: view)
+            panel?.contentView = hostingView
         }
 
         panel?.makeKeyAndOrderFront(nil)
@@ -32,7 +36,7 @@ final class FloatingPanelController: NSObject {
 
     private func createPanel(with view: some View) {
         let panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 480, height: 400),
+            contentRect: NSRect(x: 0, y: 0, width: 520, height: 720),
             styleMask: [.titled, .closable, .resizable, .nonactivatingPanel, .hudWindow],
             backing: .buffered,
             defer: false

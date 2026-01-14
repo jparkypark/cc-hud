@@ -5,9 +5,46 @@
 DB_PATH="${HOME}/.claude/statusline-usage.db"
 MENUBAR_URL="http://localhost:19222"
 
+# Initialize session_events table if it doesn't exist
+sqlite3 "$DB_PATH" "
+CREATE TABLE IF NOT EXISTS session_events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  session_id TEXT NOT NULL,
+  event_type TEXT NOT NULL,
+  timestamp INTEGER NOT NULL,
+  cwd TEXT,
+  git_branch TEXT,
+  metadata TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_events_timestamp ON session_events(timestamp);
+CREATE INDEX IF NOT EXISTS idx_events_cwd ON session_events(cwd);
+"
+
 # Escape single quotes for SQL strings (prevents SQL injection)
 escape_sql() {
   echo "${1//\'/\'\'}"
+}
+
+# Log an event to session_events table
+db_log_event() {
+  local session_id="$1"
+  local event_type="$2"
+  local cwd="$3"
+  local git_branch="$4"
+  local metadata="$5"
+  local now=$(date +%s)000
+
+  # Escape values to prevent SQL injection
+  local safe_session_id=$(escape_sql "$session_id")
+  local safe_event_type=$(escape_sql "$event_type")
+  local safe_cwd=$(escape_sql "$cwd")
+  local safe_git_branch=$(escape_sql "$git_branch")
+  local safe_metadata=$(escape_sql "$metadata")
+
+  sqlite3 "$DB_PATH" "
+    INSERT INTO session_events (session_id, event_type, timestamp, cwd, git_branch, metadata)
+    VALUES ('$safe_session_id', '$safe_event_type', $now, '$safe_cwd', '$safe_git_branch', '$safe_metadata');
+  "
 }
 
 # Get git branch for a directory

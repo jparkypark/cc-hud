@@ -2,7 +2,7 @@ import SwiftUI
 
 struct MenuBarView: View {
     var sessionManager: SessionManager
-    var onShowSessions: () -> Void
+    var onShowPanel: () -> Void
 
     private var sessionCountText: String {
         let count = sessionManager.sessions.count
@@ -26,11 +26,11 @@ struct MenuBarView: View {
 
             Divider()
 
-            // Show Sessions
-            Button(action: onShowSessions) {
+            // Show Panel
+            Button(action: onShowPanel) {
                 HStack {
                     Image(systemName: "rectangle.stack")
-                    Text("Show Sessions")
+                    Text("Show Panel")
                     Spacer()
                     Text("⌘S")
                         .font(.system(size: 11, design: .monospaced))
