@@ -13,6 +13,30 @@ struct MergedPR: Identifiable {
 /// Client for fetching GitHub PR data via the gh CLI
 class GitHubClient {
     private var cachedUsername: String?
+    private var ghPath: String?
+
+    /// Finds the gh CLI executable in common locations
+    private func findGhPath() -> String? {
+        if let cached = ghPath {
+            return cached
+        }
+
+        let commonPaths = [
+            "/opt/homebrew/bin/gh",      // Apple Silicon Homebrew
+            "/usr/local/bin/gh",          // Intel Homebrew
+            "/usr/bin/gh",                // System install
+            "\(NSHomeDirectory())/.local/bin/gh"  // User local install
+        ]
+
+        for path in commonPaths {
+            if FileManager.default.isExecutableFile(atPath: path) {
+                ghPath = path
+                return path
+            }
+        }
+
+        return nil
+    }
 
     /// Gets the current GitHub username
     func getUsername() -> String? {
@@ -87,9 +111,14 @@ class GitHubClient {
 
     /// Runs a gh CLI command and returns the output
     private func runGhCommand(_ args: [String]) -> String? {
+        guard let path = findGhPath() else {
+            print("[chud] gh CLI not found in common locations")
+            return nil
+        }
+
         let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-        process.arguments = ["gh"] + args
+        process.executableURL = URL(fileURLWithPath: path)
+        process.arguments = args
 
         let pipe = Pipe()
         process.standardOutput = pipe
