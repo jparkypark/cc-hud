@@ -31,6 +31,10 @@ build/
 .DS_Store
 Thumbs.db
 
+# Build artifacts
+dist/
+.build/
+
 # Testing
 coverage/
 .cache/
