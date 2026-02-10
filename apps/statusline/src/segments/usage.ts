@@ -7,7 +7,7 @@ import type { ClaudeCodeInput, UsageSegmentConfig } from '../config';
 import type { DatabaseClient } from '../database';
 import { Segment, type SegmentData } from './base';
 import { loadDailyUsageData } from 'ccusage/data-loader';
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync, mkdirSync, unlinkSync, statSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
 
@@ -16,6 +16,9 @@ const DEFAULT_CACHE_TTL_MINUTES = 1;
 const CACHE_DIR = join(homedir(), '.cache', 'chud');
 const CLAUDE_CACHE_FILE = join(CACHE_DIR, 'claude-usage.json');
 const CODEX_CACHE_FILE = join(CACHE_DIR, 'codex-usage.json');
+
+// Stale lock timeout: if a refreshing process crashes, the lock expires after this
+const REFRESH_LOCK_TIMEOUT_MS = 30_000;
 
 interface UsageCacheData {
   date: string;
@@ -59,26 +62,72 @@ function getSystemTimezone(): string {
   }
 }
 
+interface CacheResult {
+  data: UsageCacheData | null;
+  fresh: boolean;
+}
+
 /**
- * Load cached data if valid (same date and not expired)
+ * Load cached data. Returns { data, fresh } where:
+ * - data is the cached entry (or null if no cache exists at all)
+ * - fresh is true if the cache is within TTL
+ * This allows callers to use stale data while a single process refreshes.
  */
-function loadCache(cacheFile: string, today: string, cacheTtlMs: number): UsageCacheData | null {
+function loadCache(cacheFile: string, today: string, cacheTtlMs: number): CacheResult {
   try {
-    if (!existsSync(cacheFile)) return null;
+    if (!existsSync(cacheFile)) return { data: null, fresh: false };
 
     const cached: UsageCacheData = JSON.parse(
       readFileSync(cacheFile, 'utf-8')
     );
 
-    // Check if cache is valid (same date and not expired)
-    const now = Date.now();
-    if (cached.date === today && now - cached.timestamp < cacheTtlMs) {
-      return cached;
-    }
+    // Wrong date = treat as no cache (stale across midnight)
+    if (cached.date !== today) return { data: null, fresh: false };
 
-    return null;
+    const now = Date.now();
+    const fresh = now - cached.timestamp < cacheTtlMs;
+    return { data: cached, fresh };
   } catch {
-    return null;
+    return { data: null, fresh: false };
+  }
+}
+
+/**
+ * Try to acquire a refresh lock for a cache file.
+ * Returns true if this process should perform the refresh.
+ * Uses a .refreshing lock file with a crash-guard timeout.
+ */
+function tryAcquireRefreshLock(cacheFile: string): boolean {
+  const lockFile = cacheFile + '.refreshing';
+  try {
+    if (existsSync(lockFile)) {
+      // Check if the lock is stale (process crashed while refreshing)
+      const stat = statSync(lockFile);
+      if (Date.now() - stat.mtimeMs < REFRESH_LOCK_TIMEOUT_MS) {
+        return false; // Another process is actively refreshing
+      }
+      // Stale lock — take over
+    }
+    // Write our PID so we can identify the owner if needed
+    if (!existsSync(CACHE_DIR)) {
+      mkdirSync(CACHE_DIR, { recursive: true });
+    }
+    writeFileSync(lockFile, String(process.pid));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Release the refresh lock after recomputing.
+ */
+function releaseRefreshLock(cacheFile: string): void {
+  const lockFile = cacheFile + '.refreshing';
+  try {
+    unlinkSync(lockFile);
+  } catch {
+    // Ignore — file may already be gone
   }
 }
 
@@ -112,7 +161,7 @@ interface CodexDailyData {
 }
 
 /**
- * Fetch today's Codex usage via @ccusage/codex CLI (with caching)
+ * Fetch today's Codex usage via @ccusage/codex CLI (stale-while-revalidate)
  */
 async function loadCodexTodayData(timezone: string, cacheTtlMs: number): Promise<{
   cost: number;
@@ -120,15 +169,19 @@ async function loadCodexTodayData(timezone: string, cacheTtlMs: number): Promise
   outputTokens: number;
 }> {
   const today = getTodayDate();
+  const zero = { cost: 0, inputTokens: 0, outputTokens: 0 };
+  const { data: cached, fresh } = loadCache(CODEX_CACHE_FILE, today, cacheTtlMs);
+  const staleResult = cached
+    ? { cost: cached.cost, inputTokens: cached.inputTokens, outputTokens: cached.outputTokens }
+    : zero;
 
-  // Check cache first
-  const cached = loadCache(CODEX_CACHE_FILE, today, cacheTtlMs);
-  if (cached) {
-    return {
-      cost: cached.cost,
-      inputTokens: cached.inputTokens,
-      outputTokens: cached.outputTokens,
-    };
+  // Cache is fresh — return immediately
+  if (fresh) return staleResult;
+
+  // Cache is stale or missing. Try to acquire refresh lock.
+  if (!tryAcquireRefreshLock(CODEX_CACHE_FILE)) {
+    // Another process is refreshing — return stale data (or zeros if first run)
+    return staleResult;
   }
 
   try {
@@ -155,7 +208,7 @@ async function loadCodexTodayData(timezone: string, cacheTtlMs: number): Promise
 
     const output = await Promise.race([resultPromise, timeoutPromise]);
     if (!output) {
-      return { cost: 0, inputTokens: 0, outputTokens: 0 };
+      return staleResult;
     }
 
     const data: CodexDailyData = JSON.parse(output);
@@ -175,13 +228,15 @@ async function loadCodexTodayData(timezone: string, cacheTtlMs: number): Promise
 
     return result;
   } catch {
-    return { cost: 0, inputTokens: 0, outputTokens: 0 };
+    return staleResult;
+  } finally {
+    releaseRefreshLock(CODEX_CACHE_FILE);
   }
 }
 
 /**
- * Load today's Claude Code usage via ccusage (with caching)
- * Cache TTL is configurable to balance freshness vs performance
+ * Load today's Claude Code usage via ccusage (stale-while-revalidate)
+ * When cache expires, returns stale data immediately while one process refreshes.
  */
 async function loadClaudeTodayData(timezone: string, cacheTtlMs: number): Promise<{
   cost: number;
@@ -189,15 +244,19 @@ async function loadClaudeTodayData(timezone: string, cacheTtlMs: number): Promis
   outputTokens: number;
 }> {
   const today = getTodayDate();
+  const zero = { cost: 0, inputTokens: 0, outputTokens: 0 };
+  const { data: cached, fresh } = loadCache(CLAUDE_CACHE_FILE, today, cacheTtlMs);
+  const staleResult = cached
+    ? { cost: cached.cost, inputTokens: cached.inputTokens, outputTokens: cached.outputTokens }
+    : zero;
 
-  // Check cache first - this is the key optimization
-  const cached = loadCache(CLAUDE_CACHE_FILE, today, cacheTtlMs);
-  if (cached) {
-    return {
-      cost: cached.cost,
-      inputTokens: cached.inputTokens,
-      outputTokens: cached.outputTokens,
-    };
+  // Cache is fresh — return immediately
+  if (fresh) return staleResult;
+
+  // Cache is stale or missing. Try to acquire refresh lock.
+  if (!tryAcquireRefreshLock(CLAUDE_CACHE_FILE)) {
+    // Another process is refreshing — return stale data (or zeros if first run)
+    return staleResult;
   }
 
   try {
@@ -232,9 +291,9 @@ async function loadClaudeTodayData(timezone: string, cacheTtlMs: number): Promis
             inputTokens: todayData.inputTokens,
             outputTokens: todayData.outputTokens,
           }
-        : { cost: 0, inputTokens: 0, outputTokens: 0 };
+        : zero;
 
-      // Cache the result for 5 minutes
+      // Cache the result
       saveCache(CLAUDE_CACHE_FILE, {
         date: today,
         ...result,
@@ -253,7 +312,9 @@ async function loadClaudeTodayData(timezone: string, cacheTtlMs: number): Promis
     }
   } catch (error) {
     console.error('[chud] Failed to load usage data from ccusage:', error);
-    return { cost: 0, inputTokens: 0, outputTokens: 0 };
+    return staleResult;
+  } finally {
+    releaseRefreshLock(CLAUDE_CACHE_FILE);
   }
 }
 

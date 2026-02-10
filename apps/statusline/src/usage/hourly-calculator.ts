@@ -1,11 +1,15 @@
 /**
  * Hourly burn rate calculator
  * Reads JSONL transcript files to calculate usage for the last hour
+ *
+ * Pricing is fetched from Anthropic's docs and cached daily (~/.cache/chud/pricing.json).
+ * See pricing-fetcher.ts for details.
  */
 
 import { existsSync, readdirSync, readFileSync, statSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
+import { loadPricing, lookupModelPricing, type ModelPricing } from './pricing-fetcher';
 
 export interface HourlyUsage {
   cost: number;
@@ -15,6 +19,7 @@ export interface HourlyUsage {
   cacheTokens: number;
   apiCalls: number;
   activeMinutes: number;  // Minutes since first activity in window
+  unknownModels: string[];  // Models seen but missing from pricing table
 }
 
 export interface PaceOptions {
@@ -25,77 +30,6 @@ interface TimestampedCost {
   timestamp: number;
   cost: number;
 }
-
-// Pricing per million tokens (from Anthropic's official pricing)
-// Cache pricing: 5min = 1.25x base, 1hr = 2x base, read = 0.1x base
-const PRICING: Record<string, {
-  input: number;
-  output: number;
-  cache_write_5m: number;
-  cache_write_1h: number;
-  cache_read: number;
-}> = {
-  // Opus 4.5 models
-  'claude-opus-4-5-20251101': {
-    input: 5,
-    output: 25,
-    cache_write_5m: 6.25,
-    cache_write_1h: 10,
-    cache_read: 0.5,
-  },
-  'claude-opus-4-5': {
-    input: 5,
-    output: 25,
-    cache_write_5m: 6.25,
-    cache_write_1h: 10,
-    cache_read: 0.5,
-  },
-  // Sonnet 4.5 models
-  'claude-sonnet-4-5-20250929': {
-    input: 3,
-    output: 15,
-    cache_write_5m: 3.75,
-    cache_write_1h: 6,
-    cache_read: 0.3,
-  },
-  'claude-sonnet-4-5': {
-    input: 3,
-    output: 15,
-    cache_write_5m: 3.75,
-    cache_write_1h: 6,
-    cache_read: 0.3,
-  },
-  // Haiku 4.5 models
-  'claude-haiku-4-5-20251001': {
-    input: 1,
-    output: 5,
-    cache_write_5m: 1.25,
-    cache_write_1h: 2,
-    cache_read: 0.1,
-  },
-  'claude-haiku-4-5': {
-    input: 1,
-    output: 5,
-    cache_write_5m: 1.25,
-    cache_write_1h: 2,
-    cache_read: 0.1,
-  },
-  // Legacy 3.5 models
-  'claude-3-5-sonnet-20241022': {
-    input: 3,
-    output: 15,
-    cache_write_5m: 3.75,
-    cache_write_1h: 6,
-    cache_read: 0.3,
-  },
-  'claude-3-5-haiku-20241022': {
-    input: 0.8,
-    output: 4,
-    cache_write_5m: 1,
-    cache_write_1h: 1.6,
-    cache_read: 0.08,
-  },
-};
 
 /**
  * Calculate EWMA pace from timestamped costs
@@ -136,9 +70,14 @@ function calculateEWMAPace(
 }
 
 /**
- * Calculate cost for a single transcript entry
+ * Calculate cost for a single transcript entry.
+ * Unknown models are collected into the provided set for upstream warning.
  */
-function calculateEntryCost(entry: any): number {
+function calculateEntryCost(
+  entry: any,
+  pricingTable: Record<string, ModelPricing>,
+  unknownModels: Set<string>
+): number {
   const model = entry.message?.model;
   const usage = entry.message?.usage;
 
@@ -146,9 +85,12 @@ function calculateEntryCost(entry: any): number {
     return 0;
   }
 
-  const pricing = PRICING[model];
+  const pricing = lookupModelPricing(pricingTable, model);
   if (!pricing) {
-    console.error(`[chud] Unknown model for pricing: ${model}`);
+    // Only flag models that look like real Claude API IDs
+    if (model.startsWith('claude-')) {
+      unknownModels.add(model);
+    }
     return 0;
   }
 
@@ -190,6 +132,23 @@ export async function calculatePace(options: PaceOptions = {}): Promise<HourlyUs
   const { halfLifeMinutes = 7 } = options;
   const halfLifeMs = halfLifeMinutes * 60 * 1000;
 
+  const emptyResult: HourlyUsage = {
+    cost: 0,
+    pace: 0,
+    inputTokens: 0,
+    outputTokens: 0,
+    cacheTokens: 0,
+    apiCalls: 0,
+    activeMinutes: 0,
+    unknownModels: [],
+  };
+
+  // Load pricing (cached daily from Anthropic's docs)
+  const pricingTable = await loadPricing();
+  if (!pricingTable) {
+    return { ...emptyResult, unknownModels: ['(pricing unavailable)'] };
+  }
+
   const projectsDir = join(homedir(), '.claude', 'projects');
   const now = Date.now();
   // Look back further than the half-life to capture decaying costs
@@ -200,17 +159,11 @@ export async function calculatePace(options: PaceOptions = {}): Promise<HourlyUs
   // Find all JSONL files modified within the lookback window
   const recentFiles: string[] = [];
 
+  const unknownModels = new Set<string>();
+
   // Handle fresh installs where ~/.claude/projects doesn't exist yet
   if (!existsSync(projectsDir)) {
-    return {
-      cost: 0,
-      pace: 0,
-      inputTokens: 0,
-      outputTokens: 0,
-      cacheTokens: 0,
-      apiCalls: 0,
-      activeMinutes: 0,
-    };
+    return emptyResult;
   }
 
   const dirEntries = readdirSync(projectsDir, { withFileTypes: true });
@@ -255,7 +208,7 @@ export async function calculatePace(options: PaceOptions = {}): Promise<HourlyUs
           }
 
           // Calculate cost
-          const cost = calculateEntryCost(entry);
+          const cost = calculateEntryCost(entry, pricingTable, unknownModels);
           totalCost += cost;
 
           // Collect for EWMA calculation
@@ -301,5 +254,6 @@ export async function calculatePace(options: PaceOptions = {}): Promise<HourlyUs
     cacheTokens: totalCacheTokens,
     apiCalls,
     activeMinutes,
+    unknownModels: [...unknownModels],
   };
 }

@@ -10,6 +10,7 @@ import { calculatePace } from '../usage/hourly-calculator';
 export class PaceSegment extends Segment {
   protected config: PaceSegmentConfig;
   private cachedPace: number | null = null;
+  private unknownModels: string[] = [];
 
   constructor(config: PaceSegmentConfig) {
     super(config);
@@ -26,9 +27,13 @@ export class PaceSegment extends Segment {
       parts.push('△');  // Alchemical symbol for fire
     }
 
-    // Add pace (extrapolated $/hr)
-    const pace = this.cachedPace || 0;
-    parts.push(`$${pace.toFixed(2)}/hr`);
+    if (this.unknownModels.length > 0) {
+      // Don't show a dollar value — it would be misleadingly low
+      parts.push('pricing stale');
+    } else {
+      const pace = this.cachedPace || 0;
+      parts.push(`$${pace.toFixed(2)}/hr`);
+    }
 
     return {
       text: parts.join(' '),
@@ -44,6 +49,10 @@ export class PaceSegment extends Segment {
       halfLifeMinutes: this.config.display.halfLifeMinutes,
     });
     this.cachedPace = hourlyUsage.pace;
+    this.unknownModels = hourlyUsage.unknownModels;
+    if (this.unknownModels.length > 0) {
+      console.error(`[chud] Pricing table missing models: ${this.unknownModels.join(', ')}`);
+    }
   }
 
   /**
