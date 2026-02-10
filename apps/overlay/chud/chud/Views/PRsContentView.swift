@@ -1,25 +1,19 @@
 import SwiftUI
 
-enum PRTimeRange: String, CaseIterable {
-    case today = "Today"
-    case week = "This Week"
-}
-
 struct PRsContentView: View {
-    @State private var timeRange: PRTimeRange = .today
-    @State private var todayPRs: [MergedPR] = []
-    @State private var weekPRs: [MergedPR] = []
-    @State private var isLoading = false
-    @State private var hasLoaded = false
+    var prCacheManager: PRCacheManager
 
-    private let githubClient = GitHubClient()
-
-    private var displayedPRs: [MergedPR] {
-        timeRange == .today ? todayPRs : weekPRs
+    private var allPRs: [GitHubPR] {
+        let combined = prCacheManager.openPRs + prCacheManager.weekMergedPRs
+        return combined.sorted {
+            let dateA = ($0.mergedAt ?? $0.createdAt ?? .distantPast)
+            let dateB = ($1.mergedAt ?? $1.createdAt ?? .distantPast)
+            return dateA > dateB
+        }
     }
 
-    private var prsGroupedByOrg: [(org: String, prs: [MergedPR])] {
-        let grouped = Dictionary(grouping: displayedPRs, by: { $0.org })
+    private var prsGroupedByOrg: [(org: String, prs: [GitHubPR])] {
+        let grouped = Dictionary(grouping: allPRs, by: { $0.org })
         return grouped.map { (org: $0.key, prs: $0.value) }
             .sorted { $0.prs.count > $1.prs.count }
     }
@@ -29,27 +23,25 @@ struct PRsContentView: View {
             // Summary header
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Merged PRs")
-                        .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                    HStack(spacing: 4) {
+                        Text("Pull Requests")
+                            .font(.system(size: 14, weight: .semibold, design: .monospaced))
 
-                    if hasLoaded {
-                        Text("\(todayPRs.count) today, \(weekPRs.count) this week")
+                        if prCacheManager.isRefreshing {
+                            ProgressView()
+                                .scaleEffect(0.5)
+                                .frame(width: 12, height: 12)
+                        }
+                    }
+
+                    if prCacheManager.lastFetchedAt != nil {
+                        Text("\(prCacheManager.openCount) open \u{00B7} \(prCacheManager.todayCount) today \u{00B7} \(prCacheManager.weekCount) this week")
                             .font(.system(size: 12, design: .monospaced))
                             .foregroundColor(.secondary)
                     }
                 }
 
                 Spacer()
-
-                // Time range toggle
-                Picker("Time Range", selection: $timeRange) {
-                    ForEach(PRTimeRange.allCases, id: \.self) { range in
-                        Text(range.rawValue).tag(range)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                .frame(width: 160)
             }
             .padding(.horizontal, 16)
             .padding(.top, 12)
@@ -58,7 +50,7 @@ struct PRsContentView: View {
             Divider()
 
             // Content
-            if isLoading {
+            if prCacheManager.isLoading {
                 Spacer()
                 HStack {
                     Spacer()
@@ -70,13 +62,13 @@ struct PRsContentView: View {
                     Spacer()
                 }
                 Spacer()
-            } else if displayedPRs.isEmpty {
+            } else if allPRs.isEmpty {
                 Spacer()
                 VStack(spacing: 8) {
                     Image(systemName: "checkmark.circle")
                         .font(.system(size: 32))
                         .foregroundColor(.secondary)
-                    Text("No PRs merged \(timeRange == .today ? "today" : "this week")")
+                    Text("No open or recently merged PRs")
                         .font(.system(size: 13, design: .monospaced))
                         .foregroundColor(.secondary)
                 }
@@ -95,25 +87,7 @@ struct PRsContentView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear {
-            if !hasLoaded {
-                loadData()
-            }
-        }
-    }
-
-    private func loadData() {
-        isLoading = true
-
-        DispatchQueue.global(qos: .userInitiated).async {
-            let today = self.githubClient.getMergedPRs(for: Date())
-            let week = self.githubClient.getMergedPRsThisWeek()
-
-            DispatchQueue.main.async {
-                self.todayPRs = today
-                self.weekPRs = week
-                self.isLoading = false
-                self.hasLoaded = true
-            }
+            prCacheManager.refreshIfNeeded()
         }
     }
 }
@@ -122,7 +96,7 @@ struct PRsContentView: View {
 
 struct PRGroupView: View {
     let org: String
-    let prs: [MergedPR]
+    let prs: [GitHubPR]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -148,18 +122,18 @@ struct PRGroupView: View {
 // MARK: - PR Row View
 
 struct PRRowView: View {
-    let pr: MergedPR
+    let pr: GitHubPR
 
     var body: some View {
         Button(action: {
-            if let url = URL(string: pr.url) {
+            if let url = URL(string: pr.graphiteUrl) {
                 NSWorkspace.shared.open(url)
             }
         }) {
             HStack(alignment: .top, spacing: 8) {
-                Image(systemName: "arrow.triangle.merge")
+                Image(systemName: pr.state == .open ? "circle.fill" : "arrow.triangle.merge")
                     .font(.system(size: 11))
-                    .foregroundColor(.purple)
+                    .foregroundColor(pr.state == .open ? .green : .purple)
                     .frame(width: 16)
 
                 VStack(alignment: .leading, spacing: 2) {
@@ -176,8 +150,8 @@ struct PRRowView: View {
 
                 Spacer()
 
-                if let mergedAt = pr.mergedAt {
-                    Text(formatTime(mergedAt))
+                if let date = pr.mergedAt ?? pr.createdAt {
+                    Text(formatTime(date))
                         .font(.system(size: 10, design: .monospaced))
                         .foregroundColor(.secondary)
                 }
@@ -196,7 +170,6 @@ struct PRRowView: View {
         let formatter = DateFormatter()
         formatter.timeZone = TimeZone(identifier: "America/Chicago")
 
-        // If today, show time; otherwise show date
         if Calendar.current.isDateInToday(date) {
             formatter.dateFormat = "h:mm a"
         } else {

@@ -13,6 +13,7 @@ final class AppState {
     static let shared = AppState()
 
     let sessionManager = SessionManager()
+    let prCacheManager = PRCacheManager()
     let httpServer = HTTPServer()
     let panelController = FloatingPanelController()
     private var hasLaunched = false
@@ -29,6 +30,7 @@ final class AppState {
     func showPanel() {
         let panelView = PanelContainerView(
             sessionManager: sessionManager,
+            prCacheManager: prCacheManager,
             onClose: { self.panelController.hidePanel() }
         )
         panelController.showPanel(with: panelView)

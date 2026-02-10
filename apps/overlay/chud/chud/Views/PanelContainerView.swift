@@ -18,6 +18,7 @@ struct PanelContainerView: View {
     @State private var selectedTab: PanelTab = .sessions
     @FocusState private var isFocused: Bool
     var sessionManager: SessionManager
+    var prCacheManager: PRCacheManager
     var onClose: () -> Void
 
     var body: some View {
@@ -54,10 +55,10 @@ struct PanelContainerView: View {
             case .analytics:
                 AnalyticsContentView()
             case .prs:
-                PRsContentView()
+                PRsContentView(prCacheManager: prCacheManager)
             }
         }
-        .frame(width: 520, height: 720)
+        .frame(width: 900, height: 720)
         .focusable()
         .focused($isFocused)
         .focusEffectDisabled()

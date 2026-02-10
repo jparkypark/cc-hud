@@ -76,7 +76,7 @@ struct AnalyticsView: View {
             Spacer()
         }
         .padding(16)
-        .frame(width: 400, height: 650)
+        .frame(width: 780, height: 650)
         .onChange(of: timeRange) { _, newValue in
             loadData(days: newValue.rawValue)
         }
@@ -364,30 +364,56 @@ struct CombinedUsageChart: View {
         return todayPaceData.reduce(0) { $0 + $1.pace } / Double(todayPaceData.count)
     }
 
-    private var combinedMin: Double {
-        min(minCost, minPace)
+    // Separate Y ranges for usage (left axis) and pace (right axis)
+
+    private func niceStep(for range: Double) -> Double {
+        if range <= 0 { return 10 }
+        let rough = range / 5
+        let magnitude = pow(10, floor(log10(rough)))
+        let residual = rough / magnitude
+        if residual <= 1.5 { return magnitude }
+        if residual <= 3 { return 2 * magnitude }
+        if residual <= 7 { return 5 * magnitude }
+        return 10 * magnitude
     }
 
-    private var combinedMax: Double {
-        max(maxCost, maxPace)
-    }
-
-    private var niceYRange: (min: Double, max: Double) {
-        let niceMin = floor(combinedMin / 10) * 10
-        let niceMax = ceil(combinedMax / 10) * 10
-        return (niceMin, niceMax)
-    }
-
-    private var yAxisTicks: [Double] {
-        let range = niceYRange
-        guard range.max > range.min else { return [range.min] }
+    private func generateTicks(min minVal: Double, max maxVal: Double, step: Double) -> [Double] {
+        guard maxVal > minVal else { return [minVal] }
         var ticks: [Double] = []
-        var current = range.min
-        while current <= range.max {
+        var current = minVal
+        while current <= maxVal + step * 0.01 {
             ticks.append(current)
-            current += 10
+            current += step
         }
         return ticks
+    }
+
+    private var usageNiceYRange: (min: Double, max: Double) {
+        let niceMin = floor(minCost / 10) * 10
+        let range = maxCost - niceMin
+        let step = niceStep(for: range)
+        let niceMax = ceil(maxCost / step) * step
+        return (niceMin, Swift.max(niceMax, niceMin + step))
+    }
+
+    private var paceNiceYRange: (min: Double, max: Double) {
+        let niceMin = floor(minPace / 10) * 10
+        let range = maxPace - niceMin
+        let step = niceStep(for: range)
+        let niceMax = ceil(maxPace / step) * step
+        return (niceMin, Swift.max(niceMax, niceMin + step))
+    }
+
+    private var usageYAxisTicks: [Double] {
+        let range = usageNiceYRange
+        let step = niceStep(for: range.max - range.min)
+        return generateTicks(min: range.min, max: range.max, step: step)
+    }
+
+    private var paceYAxisTicks: [Double] {
+        let range = paceNiceYRange
+        let step = niceStep(for: range.max - range.min)
+        return generateTicks(min: range.min, max: range.max, step: step)
     }
 
     // MARK: - Today View Time Range
@@ -448,13 +474,22 @@ struct CombinedUsageChart: View {
 
                 Spacer()
 
-                // Today's stats (using today's color)
-                HStack(spacing: 4) {
-                    Circle()
-                        .fill(todayColor)
-                        .frame(width: 8, height: 8)
-                    Text("$\(String(format: "%.0f", latestCost)) • $\(String(format: "%.0f", avgPace))/hr")
-                        .font(.system(size: 10, design: .monospaced))
+                // Legend: usage (green) and pace (blue)
+                HStack(spacing: 12) {
+                    HStack(spacing: 4) {
+                        RoundedRectangle(cornerRadius: 1)
+                            .fill(usageColor)
+                            .frame(width: 14, height: 6)
+                        Text("$\(String(format: "%.0f", latestCost))")
+                            .font(.system(size: 11, design: .monospaced))
+                    }
+                    HStack(spacing: 4) {
+                        RoundedRectangle(cornerRadius: 1)
+                            .fill(paceColor)
+                            .frame(width: 14, height: 3)
+                        Text("$\(String(format: "%.0f", avgPace))/hr")
+                            .font(.system(size: 11, design: .monospaced))
+                    }
                 }
             }
 
@@ -465,6 +500,11 @@ struct CombinedUsageChart: View {
             }
         }
     }
+
+    // MARK: - Axis Colors
+
+    private let usageColor = Color(hue: 0.35, saturation: 0.8, brightness: 0.9)   // Green
+    private let paceColor = Color(hue: 0.58, saturation: 0.7, brightness: 0.85)    // Blue
 
     // MARK: - Today Chart View
 
@@ -486,28 +526,31 @@ struct CombinedUsageChart: View {
                 GeometryReader { geometry in
                     let height = geometry.size.height
                     let width = geometry.size.width
-                    let yRange = niceYRange
-                    let effectiveRange = yRange.max - yRange.min
-                    let rangeVal = effectiveRange > 0 ? effectiveRange : 1
+                    let uRange = usageNiceYRange
+                    let uRangeVal = (uRange.max - uRange.min) > 0 ? (uRange.max - uRange.min) : 1
+                    let pRange = paceNiceYRange
+                    let pRangeVal = (pRange.max - pRange.min) > 0 ? (pRange.max - pRange.min) : 1
 
                     ZStack {
                         gridLines(width: width, height: height)
 
                         if todayUsageSnapshots.count > 1, let range = extendedTimeRange {
                             let timeSpan = Double(range.end - range.start)
-                            costAreaPath(snapshots: todayUsageSnapshots, range: range, timeSpan: timeSpan, yRange: yRange, rangeVal: rangeVal, width: width, height: height, color: todayColor)
-                            costLinePath(snapshots: todayUsageSnapshots, range: range, timeSpan: timeSpan, yRange: yRange, rangeVal: rangeVal, width: width, height: height, color: todayColor)
+                            costAreaPath(snapshots: todayUsageSnapshots, range: range, timeSpan: timeSpan, yRange: uRange, rangeVal: uRangeVal, width: width, height: height, color: usageColor)
+                            costLinePath(snapshots: todayUsageSnapshots, range: range, timeSpan: timeSpan, yRange: uRange, rangeVal: uRangeVal, width: width, height: height, color: usageColor)
                         }
 
                         if todayPaceData.count > 1, let range = extendedTimeRange {
                             let timeSpan = Double(range.end - range.start)
-                            paceLinePath(snapshots: todayPaceData, range: range, timeSpan: timeSpan, yRange: yRange, rangeVal: rangeVal, width: width, height: height, color: todayColor)
+                            paceLinePath(snapshots: todayPaceData, range: range, timeSpan: timeSpan, yRange: pRange, rangeVal: pRangeVal, width: width, height: height, color: paceColor)
                         }
 
                         xAxisTicks(width: width, height: height)
                     }
                 }
                 .frame(height: 400)
+
+                rightYAxisView
             }
 
             xAxisLabels
@@ -531,7 +574,7 @@ struct CombinedUsageChart: View {
                             .fill(day.color)
                             .frame(width: 12, height: 3)
                         Text(day.dayLabel)
-                            .font(.system(size: 8, design: .monospaced))
+                            .font(.system(size: 10, design: .monospaced))
                             .foregroundColor(.secondary)
                     }
                 }
@@ -545,9 +588,10 @@ struct CombinedUsageChart: View {
                 GeometryReader { geometry in
                     let height = geometry.size.height
                     let width = geometry.size.width
-                    let yRange = niceYRange
-                    let effectiveRange = yRange.max - yRange.min
-                    let rangeVal = effectiveRange > 0 ? effectiveRange : 1
+                    let uRange = usageNiceYRange
+                    let uRangeVal = (uRange.max - uRange.min) > 0 ? (uRange.max - uRange.min) : 1
+                    let pRange = paceNiceYRange
+                    let pRangeVal = (pRange.max - pRange.min) > 0 ? (pRange.max - pRange.min) : 1
 
                     ZStack {
                         gridLines(width: width, height: height)
@@ -558,28 +602,28 @@ struct CombinedUsageChart: View {
                             let dayEndMs = dayStartMs + 24 * 60 * 60 * 1000
                             let timeSpan = Double(dayEndMs - dayStartMs)
 
-                            // Cost line for this day
+                            // Cost line for this day (left Y-axis)
                             if day.usageSnapshots.count > 1 {
                                 costLinePath(
                                     snapshots: day.usageSnapshots,
                                     range: (dayStartMs, dayEndMs),
                                     timeSpan: timeSpan,
-                                    yRange: yRange,
-                                    rangeVal: rangeVal,
+                                    yRange: uRange,
+                                    rangeVal: uRangeVal,
                                     width: width,
                                     height: height,
                                     color: day.color
                                 )
                             }
 
-                            // Pace line for this day
+                            // Pace line for this day (right Y-axis)
                             if day.paceSnapshots.count > 1 {
                                 paceLinePath(
                                     snapshots: day.paceSnapshots,
                                     range: (dayStartMs, dayEndMs),
                                     timeSpan: timeSpan,
-                                    yRange: yRange,
-                                    rangeVal: rangeVal,
+                                    yRange: pRange,
+                                    rangeVal: pRangeVal,
                                     width: width,
                                     height: height,
                                     color: day.color
@@ -592,6 +636,8 @@ struct CombinedUsageChart: View {
                     }
                 }
                 .frame(height: 400)
+
+                rightYAxisView
             }
 
             weekXAxisLabels
@@ -604,26 +650,53 @@ struct CombinedUsageChart: View {
     private var yAxisView: some View {
         HStack(spacing: 2) {
             VStack(alignment: .trailing, spacing: 0) {
-                ForEach(Array(yAxisTicks.reversed().enumerated()), id: \.offset) { _, tick in
+                ForEach(Array(usageYAxisTicks.reversed().enumerated()), id: \.offset) { _, tick in
                     Text("$\(String(format: "%.0f", tick))")
-                        .font(.system(size: 7, design: .monospaced))
-                        .foregroundColor(.secondary)
-                    if tick != yAxisTicks.first {
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundColor(usageColor.opacity(0.8))
+                    if tick != usageYAxisTicks.first {
                         Spacer()
                     }
                 }
             }
-            .frame(width: 32, height: 400)
+            .frame(width: 38, height: 400)
 
             VStack(spacing: 0) {
-                ForEach(Array(yAxisTicks.reversed().enumerated()), id: \.offset) { _, tick in
-                    Rectangle().fill(Color.gray.opacity(0.5)).frame(width: 4, height: 1)
-                    if tick != yAxisTicks.first {
+                ForEach(Array(usageYAxisTicks.reversed().enumerated()), id: \.offset) { _, tick in
+                    Rectangle().fill(usageColor.opacity(0.3)).frame(width: 4, height: 1)
+                    if tick != usageYAxisTicks.first {
                         Spacer()
                     }
                 }
             }
             .frame(width: 4, height: 400)
+        }
+    }
+
+    @ViewBuilder
+    private var rightYAxisView: some View {
+        HStack(spacing: 2) {
+            VStack(spacing: 0) {
+                ForEach(Array(paceYAxisTicks.reversed().enumerated()), id: \.offset) { _, tick in
+                    Rectangle().fill(paceColor.opacity(0.3)).frame(width: 4, height: 1)
+                    if tick != paceYAxisTicks.first {
+                        Spacer()
+                    }
+                }
+            }
+            .frame(width: 4, height: 400)
+
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(Array(paceYAxisTicks.reversed().enumerated()), id: \.offset) { _, tick in
+                    Text("$\(String(format: "%.0f", tick))")
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundColor(paceColor.opacity(0.8))
+                    if tick != paceYAxisTicks.first {
+                        Spacer()
+                    }
+                }
+            }
+            .frame(width: 34, height: 400)
         }
     }
 
@@ -746,7 +819,8 @@ struct CombinedUsageChart: View {
                 }
             }
             .frame(height: 16)
-            .padding(.leading, 36)
+            .padding(.leading, 44)
+            .padding(.trailing, 40)
         }
     }
 
@@ -759,14 +833,15 @@ struct CombinedUsageChart: View {
                 ForEach([0, 4, 8, 12, 16, 20, 24], id: \.self) { hour in
                     let x = CGFloat(hour) / 24.0 * width
                     Text(hour == 24 ? "12a" : (hour == 0 ? "12a" : (hour == 12 ? "12p" : "\(hour % 12)\(hour < 12 ? "a" : "p")")))
-                        .font(.system(size: 9, design: .monospaced))
+                        .font(.system(size: 10, design: .monospaced))
                         .foregroundColor(.secondary)
                         .position(x: x, y: 6)
                 }
             }
         }
         .frame(height: 16)
-        .padding(.leading, 36)
+        .padding(.leading, 44)
+        .padding(.trailing, 40)
     }
 
     // MARK: - Helpers

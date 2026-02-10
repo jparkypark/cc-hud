@@ -1,13 +1,33 @@
 import Foundation
 
-/// Represents a merged pull request
-struct MergedPR: Identifiable {
+enum PRState {
+    case open
+    case merged
+}
+
+/// Represents a GitHub pull request (open or merged)
+struct GitHubPR: Identifiable {
     let id: String
     let title: String
     let repo: String
     let org: String
     let url: String
+    let state: PRState
+    let createdAt: Date?
     let mergedAt: Date?
+
+    /// Converts GitHub PR URL to Graphite equivalent
+    /// e.g. https://github.com/org/repo/pull/123 → https://app.graphite.dev/github/pr/org/repo/123
+    var graphiteUrl: String {
+        let parts = url.split(separator: "/")
+        // URL format: https://github.com/<org>/<repo>/pull/<number>
+        guard parts.count >= 5,
+              let number = parts.last,
+              parts[parts.count - 2] == "pull" else {
+            return url
+        }
+        return "https://app.graphite.dev/github/pr/\(org)/\(repo)/\(number)"
+    }
 }
 
 /// Client for fetching GitHub PR data via the gh CLI
@@ -49,32 +69,24 @@ class GitHubClient {
         return cachedUsername
     }
 
-    /// Fetches merged PRs authored by the current user for a specific date
-    /// - Parameter date: The date to query (in local timezone)
-    /// - Returns: Array of merged PRs
-    func getMergedPRs(for date: Date) -> [MergedPR] {
+    /// Fetches open PRs authored by the current user
+    func getOpenPRs() -> [GitHubPR] {
         guard let username = getUsername() else { return [] }
-
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        formatter.timeZone = TimeZone(identifier: "America/Chicago")
-        let dateString = formatter.string(from: date)
 
         let args = [
             "search", "prs",
             "--author=\(username)",
-            "--merged-at=\(dateString)",
-            "--json", "repository,title,url,updatedAt",
+            "--state=open",
+            "--json", "repository,title,url,createdAt",
             "--limit", "100"
         ]
 
         guard let output = runGhCommand(args) else { return [] }
-        return parsePRsJSON(output)
+        return parsePRsJSON(output, state: .open)
     }
 
     /// Fetches merged PRs authored by the current user for the current week
-    /// - Returns: Array of merged PRs
-    func getMergedPRsThisWeek() -> [MergedPR] {
+    func getMergedPRsThisWeek() -> [GitHubPR] {
         guard let username = getUsername() else { return [] }
 
         // Get start of current week (Sunday) in Central timezone
@@ -106,7 +118,7 @@ class GitHubClient {
         ]
 
         guard let output = runGhCommand(args) else { return [] }
-        return parsePRsJSON(output)
+        return parsePRsJSON(output, state: .merged)
     }
 
     /// Runs a gh CLI command and returns the output
@@ -141,7 +153,7 @@ class GitHubClient {
     }
 
     /// Parses the JSON output from gh search prs
-    private func parsePRsJSON(_ json: String) -> [MergedPR] {
+    private func parsePRsJSON(_ json: String, state: PRState) -> [GitHubPR] {
         guard let data = json.data(using: .utf8) else { return [] }
 
         do {
@@ -149,7 +161,9 @@ class GitHubClient {
                 return []
             }
 
-            return array.compactMap { item -> MergedPR? in
+            let isoFormatter = ISO8601DateFormatter()
+
+            return array.compactMap { item -> GitHubPR? in
                 guard let repo = item["repository"] as? [String: Any],
                       let repoName = repo["name"] as? String,
                       let nameWithOwner = repo["nameWithOwner"] as? String,
@@ -161,23 +175,32 @@ class GitHubClient {
                 let org = nameWithOwner.split(separator: "/").first.map(String.init) ?? ""
                 let id = url  // Use URL as unique ID
 
-                // Parse updatedAt as a proxy for mergedAt
-                var mergedAt: Date?
-                if let updatedAtString = item["updatedAt"] as? String {
-                    let formatter = ISO8601DateFormatter()
-                    mergedAt = formatter.date(from: updatedAtString)
+                var createdAt: Date?
+                if let createdAtString = item["createdAt"] as? String {
+                    createdAt = isoFormatter.date(from: createdAtString)
                 }
 
-                return MergedPR(
+                var mergedAt: Date?
+                if let updatedAtString = item["updatedAt"] as? String {
+                    mergedAt = isoFormatter.date(from: updatedAtString)
+                }
+
+                return GitHubPR(
                     id: id,
                     title: title,
                     repo: repoName,
                     org: org,
                     url: url,
-                    mergedAt: mergedAt
+                    state: state,
+                    createdAt: createdAt,
+                    mergedAt: state == .merged ? mergedAt : nil
                 )
             }
-            .sorted { ($0.mergedAt ?? .distantPast) > ($1.mergedAt ?? .distantPast) }
+            .sorted {
+                let dateA = ($0.mergedAt ?? $0.createdAt ?? .distantPast)
+                let dateB = ($1.mergedAt ?? $1.createdAt ?? .distantPast)
+                return dateA > dateB
+            }
         } catch {
             print("[chud] Failed to parse PR JSON: \(error)")
             return []

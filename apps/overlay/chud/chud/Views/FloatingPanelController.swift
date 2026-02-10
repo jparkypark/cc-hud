@@ -54,7 +54,7 @@ final class FloatingPanelController: NSObject {
 
     private func createPanel(with view: some View) {
         let panel = KeyInterceptingPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 520, height: 720),
+            contentRect: NSRect(x: 0, y: 0, width: 900, height: 720),
             styleMask: [.titled, .closable, .resizable, .nonactivatingPanel],
             backing: .buffered,
             defer: false
