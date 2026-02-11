@@ -86,4 +86,8 @@ extension FloatingPanelController: NSWindowDelegate {
     func windowWillClose(_ notification: Notification) {
         isVisible = false
     }
+
+    func windowDidResignKey(_ notification: Notification) {
+        hidePanel()
+    }
 }
