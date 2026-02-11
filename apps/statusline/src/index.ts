@@ -30,9 +30,14 @@ async function readStdin(): Promise<string> {
  */
 async function main() {
   try {
-    // 1. Read input from Claude Code (via stdin)
-    const input = await readStdin();
-    const sessionData = input ? JSON.parse(input) : {};
+    // 1. Read input from Claude Code (via stdin), or skip in standalone mode
+    const standalone = process.argv.includes('--standalone');
+    let sessionData: Record<string, unknown> = {};
+
+    if (!standalone) {
+      const input = await readStdin();
+      sessionData = input ? JSON.parse(input) : {};
+    }
 
     // 2. Load configuration
     const config = loadConfig();
