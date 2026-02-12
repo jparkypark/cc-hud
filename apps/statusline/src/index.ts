@@ -39,6 +39,12 @@ async function main() {
       sessionData = input ? JSON.parse(input) : {};
     }
 
+    // Parse --cache-ttl <seconds> flag (overrides per-segment cacheTtlMinutes)
+    const cacheTtlIdx = process.argv.indexOf('--cache-ttl');
+    const cacheTtlOverrideMs = cacheTtlIdx !== -1 && process.argv[cacheTtlIdx + 1]
+      ? Number(process.argv[cacheTtlIdx + 1]) * 1000
+      : undefined;
+
     // 2. Load configuration
     const config = loadConfig();
 
@@ -50,33 +56,59 @@ async function main() {
       db.cleanupOldSessions(7);
     }
 
-    // 4. Create segments and load async data for usage segment
+    // 4. Create segments
     const segments = config.segments.map((segmentConfig) =>
       createSegment(segmentConfig)
     );
 
-    // Load usage data asynchronously (if usage segment exists)
-    await Promise.all(
-      segments.map(async (segment) => {
-        if ('updateCache' in segment && typeof segment.updateCache === 'function') {
-          await segment.updateCache();
-        }
-      })
-    );
+    if (standalone) {
+      // Standalone mode (ticker): compute fresh usage/pace data and persist to DB.
+      // This is the single source of truth for usage data.
+      const usageSegment = new UsageSegment({
+        type: 'usage',
+        display: { icon: false, cost: false, tokens: false, period: 'today', cacheTtlMinutes: 1 },
+        colors: { fg: '', bg: '' },
+      });
+      const paceSegment = new PaceSegment({
+        type: 'pace',
+        display: { icon: false, period: 'hourly', halfLifeMinutes: 60 },
+        colors: { fg: '', bg: '' },
+      });
 
-    // 5. Persist usage and pace data to database for charts
-    for (const segment of segments) {
-      if (segment instanceof UsageSegment) {
-        const data = segment.getCachedData();
-        if (data) {
-          db.recordDailyUsage(data.date, data.cost, data.inputTokens, data.outputTokens);
-          db.recordUsageSnapshot(data.cost);  // Also record snapshot for time-series chart
-        }
+      await Promise.all([
+        usageSegment.updateCache(cacheTtlOverrideMs),
+        paceSegment.updateCache(),
+      ]);
+
+      const usageData = usageSegment.getCachedData();
+      if (usageData) {
+        db.recordDailyUsage(usageData.date, usageData.cost, usageData.inputTokens, usageData.outputTokens);
+        db.recordUsageSnapshot(usageData.cost);
       }
-      if (segment instanceof PaceSegment) {
-        const pace = segment.getCachedPace();
-        if (pace !== null) {
-          db.recordPaceSnapshot(pace);
+
+      const pace = paceSegment.getCachedPace();
+      if (pace !== null) {
+        db.recordPaceSnapshot(pace);
+      }
+    } else {
+      // Normal mode (statusline): load async data for non-usage/pace segments only.
+      // Usage and pace segments read from DB (populated by the ticker).
+      await Promise.all(
+        segments.map(async (segment) => {
+          if (segment instanceof UsageSegment || segment instanceof PaceSegment) return;
+          if ('updateCache' in segment && typeof segment.updateCache === 'function') {
+            await segment.updateCache(cacheTtlOverrideMs);
+          }
+        })
+      );
+
+      // Hydrate usage/pace segments from DB if they're in the config
+      for (const segment of segments) {
+        if (segment instanceof UsageSegment) {
+          segment.loadFromDb(db);
+        }
+        if (segment instanceof PaceSegment) {
+          segment.loadFromDb(db);
         }
       }
     }

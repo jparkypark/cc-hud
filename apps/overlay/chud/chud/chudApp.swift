@@ -14,6 +14,7 @@ final class AppState {
 
     let sessionManager = SessionManager()
     let prCacheManager = PRCacheManager()
+    let menuBarTicker = MenuBarTicker()
     let httpServer = HTTPServer()
     let panelController = FloatingPanelController()
     private var hasLaunched = false
@@ -62,6 +63,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 }
 
+struct MenuBarLabel: View {
+    var ticker: MenuBarTicker
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "waveform.path.ecg")
+            Text(ticker.tickerText)
+                .font(.system(size: 12, weight: .medium, design: .monospaced))
+        }
+    }
+}
+
 @main
 struct chudApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
@@ -75,7 +88,7 @@ struct chudApp: App {
                 }
             )
         } label: {
-            Image(systemName: "waveform.path.ecg")
+            MenuBarLabel(ticker: AppState.shared.menuBarTicker)
         }
         .menuBarExtraStyle(.window)
     }

@@ -3,7 +3,7 @@
  */
 
 import type { ClaudeCodeInput, PaceSegmentConfig } from '../config';
-import type { DatabaseClient } from '../database';
+import { DatabaseClient } from '../database';
 import { Segment, type SegmentData } from './base';
 import { calculatePace } from '../usage/hourly-calculator';
 
@@ -52,6 +52,16 @@ export class PaceSegment extends Segment {
     this.unknownModels = hourlyUsage.unknownModels;
     if (this.unknownModels.length > 0) {
       console.error(`[chud] Pricing table missing models: ${this.unknownModels.join(', ')}`);
+    }
+  }
+
+  /**
+   * Load pace data from DB (populated by the ticker in standalone mode)
+   */
+  loadFromDb(db: DatabaseClient): void {
+    const snapshots = db.getPaceSnapshots(1);
+    if (snapshots.length > 0) {
+      this.cachedPace = snapshots[snapshots.length - 1].pace;
     }
   }
 

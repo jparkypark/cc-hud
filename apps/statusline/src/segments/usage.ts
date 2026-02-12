@@ -4,7 +4,7 @@
  */
 
 import type { ClaudeCodeInput, UsageSegmentConfig } from '../config';
-import type { DatabaseClient } from '../database';
+import { DatabaseClient } from '../database';
 import { Segment, type SegmentData } from './base';
 import { loadDailyUsageData } from 'ccusage/data-loader';
 import { existsSync, readFileSync, writeFileSync, mkdirSync, unlinkSync, statSync } from 'fs';
@@ -380,10 +380,11 @@ export class UsageSegment extends Segment {
   /**
    * Update cached data (call this before render)
    * Fetches both Claude Code and Codex usage in parallel
+   * @param cacheTtlOverrideMs - Optional TTL override in ms (from --cache-ttl flag)
    */
-  async updateCache(): Promise<void> {
+  async updateCache(cacheTtlOverrideMs?: number): Promise<void> {
     const timezone = getSystemTimezone();
-    const cacheTtlMs = this.getCacheTtlMs();
+    const cacheTtlMs = cacheTtlOverrideMs ?? this.getCacheTtlMs();
 
     // Fetch Claude Code and Codex usage in parallel
     const [claudeData, codexData] = await Promise.all([
@@ -402,6 +403,24 @@ export class UsageSegment extends Segment {
       inputTokens,
       outputTokens,
     };
+  }
+
+  /**
+   * Load usage data from DB (populated by the ticker in standalone mode)
+   */
+  loadFromDb(db: DatabaseClient): void {
+    const today = getTodayDate();
+    const usage = db.getDailyUsage(1);
+    const todayRecord = usage.find((r) => r.date === today);
+    if (todayRecord) {
+      this.cachedData = {
+        date: today,
+        cost: todayRecord.cost,
+        tokens: todayRecord.input_tokens + todayRecord.output_tokens,
+        inputTokens: todayRecord.input_tokens,
+        outputTokens: todayRecord.output_tokens,
+      };
+    }
   }
 
   /**
